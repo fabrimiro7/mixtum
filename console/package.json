@@ -1,0 +1,46 @@
+{
+  "name": "adr-payment-hub",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve --poll 1000 --prebundle=false",
+    "build": "ng build",
+    "build:plugin-packages": "ng-packagr -p ../packages/console-api/ng-package.json -c ../packages/console-api/tsconfig.lib.json && ng-packagr -p ../plugins/plugin_example/console/ng-package.json -c ../plugins/plugin_example/console/tsconfig.lib.json && ng-packagr -p ../plugins/links/console/ng-package.json -c ../plugins/links/console/tsconfig.lib.json && ng-packagr -p ../plugins/ticket/console/ng-package.json -c ../plugins/ticket/console/tsconfig.lib.json && ng-packagr -p ../extensions/demo_support/console/ng-package.json -c ../extensions/demo_support/console/tsconfig.lib.json",
+    "watch": "ng build --watch --configuration development",
+    "test": "bash ../scripts/test-console-browser.sh"
+  },
+  "private": true,
+  "dependencies": {
+    "@angular/animations": "22.2.1",
+    "@angular/cdk": "22.2.1",
+    "@angular/common": "22.2.1",
+    "@angular/compiler": "22.2.1",
+    "@angular/core": "22.2.1",
+    "@angular/forms": "22.2.1",
+    "@angular/platform-browser": "22.2.1",
+    "@angular/platform-browser-dynamic": "22.2.1",
+    "@angular/router": "22.2.1",
+    "@mixtum/console-api": "file:../packages/console-api",
+    "@mixtum/plugin-example-console": "file:../plugins/plugin_example/console",
+    "@mixtum/plugin-links-console": "file:../plugins/links/console",
+    "@mixtum/plugin-ticket-console": "file:../plugins/ticket/console",
+    "@mixtum/extension-demo-support-console": "file:../extensions/demo_support/console",
+    "keycloak-js": "26.2.4",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.15.1"
+  },
+  "devDependencies": {
+    "@angular/build": "22.2.0",
+    "@angular/cli": "22.2.0",
+    "@angular/compiler-cli": "22.2.1",
+    "@tailwindcss/postcss": "4.3.3",
+    "@vitest/browser-playwright": "4.1.11",
+    "jsdom": "27.0.0",
+    "ng-packagr": "22.2.0",
+    "postcss": "8.5.28",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "vitest": "4.1.11"
+  }
+}

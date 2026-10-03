@@ -60,6 +60,18 @@ server {
     proxy_set_header X-Forwarded-Host   $host;
   }
 
+  location /api/attachments/ {
+    # Multipart overhead above the 20 MiB file limit; other routes retain the 2 MiB server limit.
+    client_max_body_size 21M;
+    limit_req zone=general burst=50 nodelay;
+
+    proxy_pass http://web:8000;
+    proxy_set_header Host               $host;
+    proxy_set_header X-Forwarded-Proto  $scheme;
+    proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host   $host;
+  }
+
   location /admin/ {
     # allow 1.2.3.4;
     # deny all;

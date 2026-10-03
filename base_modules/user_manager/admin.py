@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.hashers import identify_hasher
-from .models import User
+from .models import ExternalIdentity, User
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
@@ -18,3 +18,26 @@ class UserAdmin(admin.ModelAdmin):
                 # Non è un hash: è una password in chiaro -> cifra
                 obj.set_password(obj.password)
         super().save_model(request, obj, form, change)
+
+
+@admin.register(ExternalIdentity)
+class ExternalIdentityAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "issuer", "subject", "created_at")
+    search_fields = ("issuer", "subject", "user__email", "user__username")
+    autocomplete_fields = ("user",)
+    readonly_fields = ("created_at",)
+
+    def has_module_permission(self, request):
+        return request.user.is_superuser
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_add_permission(self, request):
+        return request.user.is_superuser
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser

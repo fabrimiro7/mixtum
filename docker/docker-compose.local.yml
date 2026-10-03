@@ -4,24 +4,14 @@
 
 services:
   web:
+    command: ["dev"]
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - ../:/app
 
   worker:
-    volumes:
-      - ../:/app
+    volumes: [../:/app]
 
   beat:
-    volumes:
-      - ../:/app
-
-  db:
-    ports:
-      # Host:container — solo mapping verso l’esterno; in rete Docker resta db:5432
-      - "${POSTGRES_HOST_PORT:-5432}:5432"
-
-  redis:
-    ports:
-      - "${REDIS_HOST_PORT:-6379}:6379"
+    volumes: [../:/app]

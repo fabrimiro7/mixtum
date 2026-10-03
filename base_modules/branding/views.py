@@ -1,5 +1,8 @@
+import re
+
 from django.shortcuts import get_object_or_404
-from rest_framework import permissions, status
+from rest_framework import permissions
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -27,6 +30,28 @@ def _file_url(request, file_field):
     except ValueError:
         return None
     return request.build_absolute_uri(url) if request else url
+
+
+def _visible_workspace(request, workspace_id):
+    user = request.user
+    if not user.is_authenticated:
+        raise PermissionDenied("Autenticazione richiesta")
+    queryset = Workspace.objects.all()
+    if not user.is_superuser:
+        queryset = queryset.filter(workspaceuser__user=user)
+    return get_object_or_404(queryset, pk=workspace_id)
+
+
+def _console_theme(colors):
+    # Legacy color settings may contain arbitrary strings; expose only a CSS-safe token.
+    primary = colors.get("--ed-blue")
+    if not isinstance(primary, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", primary):
+        primary = DEFAULT_COLORS["--ed-blue"]
+    channels = [int(primary[index:index + 2], 16) / 255 for index in (1, 3, 5)]
+    linear = [channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4
+              for channel in channels]
+    luminance = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+    return {"primary": primary, "on_primary": "#000000" if luminance > 0.179 else "#FFFFFF"}
 
 
 class GlobalBrandingView(APIView):
@@ -65,11 +90,11 @@ class GlobalBrandingView(APIView):
 class WorkspaceBrandingView(APIView):
     def get_permissions(self):
         if self.request.method in permissions.SAFE_METHODS:
-            return [permissions.AllowAny()]
+            return [permissions.IsAuthenticated()]
         return [IsSuperAdmin()]
 
     def get(self, request, workspace_id: int):
-        workspace = get_object_or_404(Workspace, pk=workspace_id)
+        workspace = _visible_workspace(request, workspace_id)
         instance = BrandingSettings.objects.filter(workspace=workspace).first()
         if not instance:
             return Response(
@@ -103,7 +128,9 @@ class EffectiveBrandingView(APIView):
         try:
             workspace_id = int(workspace_id_raw) if workspace_id_raw else None
         except (TypeError, ValueError):
-            workspace_id = None
+            raise PermissionDenied("Workspace non valido")
+        if workspace_id is not None:
+            _visible_workspace(request, workspace_id)
         colors = {**DEFAULT_COLORS}
 
         global_settings = BrandingSettings.objects.filter(workspace__isnull=True).order_by("id").first()
@@ -130,6 +157,7 @@ class EffectiveBrandingView(APIView):
             {
                 "workspace_id": workspace_id,
                 "colors": colors,
+                "theme": _console_theme(colors),
                 "logo_full": _file_url(request, logo_full),
                 "logo_compact": _file_url(request, logo_compact),
                 "favicon": _file_url(request, favicon),

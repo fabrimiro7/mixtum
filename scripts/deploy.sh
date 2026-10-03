@@ -59,8 +59,12 @@ mkdir -p "$ROOT_DIR/letsencrypt_data" "$ROOT_DIR/certbot-www"
 CERT_PATH_HOST="$ROOT_DIR/letsencrypt_data/live/${SERVER_NAME}/fullchain.pem"
 RENEW_CONF_HOST="$ROOT_DIR/letsencrypt_data/renewal/${SERVER_NAME}.conf"
 
-log "Building and starting stack (PROD, profile: ${PROFILE})..."
-compose up -d --build
+log "Building images (PROD, profile: ${PROFILE})..."
+compose build
+compose up -d db
+log "Applying migrations before starting web..."
+compose run --rm --no-deps web migrate
+compose up -d --no-build
 
 log "Waiting for Nginx on port 80 (best-effort)..."
 for _ in {1..30}; do

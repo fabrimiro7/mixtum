@@ -1,8 +1,13 @@
 from pathlib import Path
 import os
+from django.core.exceptions import ImproperlyConfigured
 
-BASE_DIR = Path(__file__).resolve().parents[2]  # points to project root
-SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-default-key")
+from mixtum_core.plugin_registry import load_plugins
+
+BASE_DIR = Path(os.environ.get("MIXTUM_INSTANCE_ROOT", Path(__file__).resolve().parents[2])).resolve()
+SECRET_KEY = os.environ.get("SECRET_KEY", "")
+if not SECRET_KEY or SECRET_KEY in {"changeme", "django-insecure-default-key"}:
+    raise ImproperlyConfigured("SECRET_KEY deve essere impostata con un valore non predefinito.")
 DEBUG = False
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "*").split(",") if h.strip()]
@@ -54,14 +59,15 @@ INSTALLED_APPS = [
     "base_modules.workspace",
     "base_modules.attachment",
     "base_modules.the_watcher",
-    "base_modules.links",
     "base_modules.integrations.messaging",
-    "plugins.plugin_example",
 
     # Integrations
     "base_modules.integrations.notifications",
     "base_modules.integrations.automation",
 ]
+MIXTUM_COMPOSITION_MODULE = os.environ.get("MIXTUM_COMPOSITION_MODULE", "mixtum_instance.composition")
+MIXTUM_PLUGINS = load_plugins(MIXTUM_COMPOSITION_MODULE)
+INSTALLED_APPS.extend(plugin.django_app for plugin in MIXTUM_PLUGINS)
 SITE_ID = int(os.getenv("SITE_ID", "1"))
 
 MIDDLEWARE = [
@@ -72,7 +78,6 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "base_modules.workspace.middleware.WorkspaceMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -99,12 +104,6 @@ TEMPLATES = [
 WSGI_APPLICATION = "mixtum_core.wsgi.application"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-
-# -------------------------------------------------------------------
-# Static & Media settings + storage config
-# -------------------------------------------------------------------
-from .static_media import *   # definisce STATIC_URL, MEDIA_URL, STORAGES base
-from .storage_s3 import *     # se USE_S3=1 override STORAGES["default"] (media) e opz. "staticfiles"
 
 # -------------------------------------------------------------------
 # Twilio WhatsApp Integration

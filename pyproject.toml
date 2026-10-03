@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mixtum-platform-backend"
+version = "0.1.0"
+description = "Mixtum Core and shared Django platform applications"
+readme = "README.md"
+requires-python = ">=3.12"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mixtum_core*", "base_modules*"]
+exclude = ["base_modules.links*", "base_modules.user_manager.integrations*"]
+namespaces = true

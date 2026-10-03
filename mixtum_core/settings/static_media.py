@@ -2,7 +2,7 @@ from pathlib import Path
 import os
 
 # Avoid importing base.py here to prevent circular imports
-BASE_DIR = Path(__file__).resolve().parents[2]
+BASE_DIR = Path(os.environ.get("MIXTUM_INSTANCE_ROOT", Path(__file__).resolve().parents[2])).resolve()
 DEBUG = os.environ.get("DEBUG", "1").lower() in ("1", "true", "yes")
 
 # URLs and roots

@@ -1,0 +1,12 @@
+**
+!Dockerfile
+!requirements.txt
+!constraints.txt
+!manage.py
+!mixtum_instance/
+!mixtum_instance/__init__.py
+!mixtum_instance/composition.py
+!mixtum_instance/composition.json
+!vendor/
+!vendor/wheels/
+!vendor/wheels/*.whl

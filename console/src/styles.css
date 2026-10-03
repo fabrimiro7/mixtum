@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+html, body { height: 100%; }
+body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+
+.mixtum-brand-button {
+  background-color: var(--mixtum-primary, #4338ca);
+  color: var(--mixtum-on-primary, #ffffff);
+}
+.mixtum-brand-button:hover { filter: brightness(0.92); }
+.mixtum-brand-border { border-color: var(--mixtum-primary, #4338ca); }

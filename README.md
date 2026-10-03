@@ -8,9 +8,28 @@ Backend Django con **base modules** riutilizzabili (utenti, workspace, email, in
 
 Guide pratiche per sviluppare con Mixtum:
 
-- **[Struttura di Mixtum](docs/structure.md)** — Come è organizzato il progetto e dove si trova ogni parte.
-- **[Base modules](docs/base-modules.md)** — Caratteristiche e funzioni dei moduli condivisi (user_manager, workspace, mailer, ecc.).
-- **[Plugin](docs/plugins.md)** — Struttura di un plugin e come creare un nuovo plugin.
+- **[Architettura](ARCHITECTURE.md)** — Confini Core, Platform, Plugin ed Extension.
+- **[Contratto di sicurezza](SECURITY.md)** — Autenticazione, autorizzazione e isolamento workspace.
+- **[Composizione plugin](docs/engineering/plugin-composition.md)** — Contratto e prova locale di backend, Console e reload del plugin example.
+- **[Transizione Links](docs/engineering/links-transition.md)** — Secondo plugin, isolamento workspace e trattamento dei dati legacy.
+- **[Packaging backend](docs/engineering/platform-packaging.md)** — Wheel della piattaforma, vincoli di dipendenza e prova da istanza separata.
+- **[Allegati legacy](docs/engineering/attachments-legacy.md)** — Accesso per proprietario, download privato e limiti dell'upload in modalità Django.
+
+Per creare una **nuova istanza separata** senza copiare il framework nel progetto cliente:
+
+```bash
+bash scripts/create-project.sh /percorso/nuova-istanza
+cd /percorso/nuova-istanza
+make install-wheels WHEELHOUSE=/percorso/wheelhouse
+make check
+make console-build CONSOLE_BUNDLE=/percorso/mixtum-console-0.1.0.tar.gz
+```
+
+Il template e i suoi limiti sono documentati in [templates/instance/README.md](templates/instance/README.md). Wheel e bundle vengono costruiti dal checkout ma non sono ancora pubblicati; l'avvio end-to-end con Docker resta un gate della release v0.1. Il vecchio `create-project.sh` che generava un `*_core` derivato è stato sostituito.
+Anche il vecchio target `make update-mixtum`, che copiava directory dal remote Git sopra il progetto, è stato rimosso. Le istanze dichiarano dipendenze versionate e conservano le proprie extension; una procedura di upgrade e rollback su staging resta da provare prima della release.
+Per creare un plugin ordinario in un checkout separato, usa `python3 scripts/create-plugin.py customer_portal /percorso/customer-portal`. Produce package Django, migration, API e test workspace-scoped, più un package Angular con pagina Console. Il [README generato](templates/plugin/README.md) descrive come costruire wheel e tarball; la registrazione e l'abilitazione nell'istanza restano esplicite. Il comando rifiuta una destinazione già esistente e non modifica il framework o i dati dell'istanza.
+
+Per guidare un agente nello stesso flusso, è disponibile la skill sperimentale [mixtum-instance-workflow](.agents/skills/mixtum-instance-workflow/SKILL.md). La build da wheel/tarball esterni, l'installazione npm standalone e il reload frontend del plugin generato tramite `make console-dev` sono provati; release pubblicata e staging reale restano da verificare.
 
 ---
 
@@ -34,17 +53,16 @@ cd /path/to/mixtum-02
 
 ### 2. File `.env`
 
-Crea il file di ambiente dalla copia di esempio:
+Non creare manualmente `.env` per un'istanza nuova: `make setup` lo genera con credenziali casuali e permessi limitati. Se `.env` esiste già, il setup lo riusa senza cambiare le credenziali. Se manca ma esiste il volume PostgreSQL della stessa istanza, il setup si interrompe: recupera la configurazione originale o scegli una nuova istanza; non eliminare il volume.
 
-```bash
-cp .env.example .env
-```
+`SECRET_KEY` e `POSTGRES_PASSWORD` non hanno più un valore di fallback. Se una configurazione esistente è incompleta o usa `SECRET_KEY=changeme`, il setup si ferma senza rigenerare credenziali: recupera i valori originali prima di riavviare l'istanza. Cambiare soltanto la password nel file `.env` non modifica quella già registrata in PostgreSQL.
 
-Opzionale: puoi rigenerare `SECRET_KEY` e `POSTGRES_PASSWORD` per maggiore sicurezza (lo script `setup.sh` può farlo in automatico al primo avvio).
+Lo storage S3 è facoltativo e disattivato per impostazione predefinita. Se imposti `USE_S3=1`, devi configurare almeno `AWS_STORAGE_BUCKET_NAME`: un bucket mancante interrompe l'avvio invece di passare silenziosamente ai file locali. L'effettivo accesso al provider S3 richiede una prova separata con credenziali e bucket dell'istanza.
+Le URL dei media S3 sono firmate per impostazione predefinita. Se un'istanza esistente usava intenzionalmente URL pubbliche senza `AWS_QUERYSTRING_AUTH` in `.env`, valuta l'impatto sui client prima dell'aggiornamento; l'accesso pubblico va scelto esplicitamente con `AWS_QUERYSTRING_AUTH=0` e non è adatto a file privati.
 
 ### 3. Primo avvio (setup completo)
 
-Esegui il setup che fa build, avvio di database e Redis, migrations e (a scelta) creazione superuser e struttura progetto:
+Esegui il setup locale: build del backend, avvio del database, migration esplicite e avvio del web.
 
 ```bash
 make setup
@@ -56,7 +74,7 @@ Oppure, senza Make:
 bash scripts/setup.sh
 ```
 
-Lo script chiederà se creare un superuser e se creare la struttura per un progetto derivato.
+Il setup non avvia Redis, worker, Console o Keycloak. Le funzionalità che li richiedono non sono disponibili in questa configurazione minima.
 
 ### Setup di istanze parallele (stesso progetto)
 
@@ -69,23 +87,15 @@ make setup
 # Nome istanza opzionale: dev2
 ```
 
-Da quel momento usa lo stesso prefisso nei comandi `make`:
+Il nome viene salvato come `COMPOSE_PROJECT_NAME` in `.env`; i comandi successivi riusano automaticamente la stessa istanza:
 
 ```bash
-INSTANCE_NAME=dev2 make dev-d
-INSTANCE_NAME=dev2 make logs
-INSTANCE_NAME=dev2 make stop
+make dev-d
+make logs
+make stop
 ```
 
-`make setup` salva automaticamente `INSTANCE_NAME` in `.env`, quindi i comandi successivi (incluso `make rebuild`) riusano la stessa istanza anche senza prefisso.
-
-Per un override temporaneo su una singola esecuzione:
-
-```bash
-INSTANCE_NAME=altro make rebuild
-```
-
-Se lasci il nome istanza vuoto, il comportamento resta identico a prima (stack di default basato sul nome cartella).
+Per cambiare istanza serve una directory/configurazione `.env` distinta; non modificare il nome in una configurazione già associata a dati senza verificarne i volumi.
 
 ### 4. Avvio successivi
 
@@ -108,7 +118,7 @@ make dev-d
 | `make migrate` | Applica le migrations |
 | `make makemigrations` | Crea nuove migrations |
 | `make shell` | Shell Django (`manage.py shell`) |
-| `make logs` | Log di web e worker |
+| `make logs` | Log del web |
 | `make stop` | Ferma i container (locale) |
 | `make rebuild` | Ricostruisce immagini e riavvia senza cancellare i volumi |
 
@@ -117,11 +127,30 @@ make dev-d
 - **Backend API**: `http://localhost:8000`
 - **Admin Django**: `http://localhost:8000/admin`
 
-In locale i servizi usano `docker/docker-compose.yml` + `docker/docker-compose.local.yml` + `docker/docker-compose.override.yml`; le porte 8000 (web), 5432 (Postgres) e 6379 (Redis) sono esposte.
+In locale il web è pubblicato solo su `127.0.0.1:8000`; PostgreSQL e Redis non pubblicano porte host. Worker, scheduler e Redis si possono avviare esplicitamente con il profilo `workers`. Per verifiche locali, eseguire `python -m unittest discover -s tests -p 'test_bootstrap.py' -v`.
+
+Il setup verifica anche una risposta HTTP da `/admin/login/` prima di dichiarare pronto il backend. Le attese sono configurabili con `DB_WAIT_SECONDS` (default 60) e `WEB_WAIT_SECONDS` (default 30).
+
+Per riprodurre lo stack aggiornato (Python 3.12, Node 22.22.3; Django 6.1.1, Angular 22.2.1/CLI 22.2.0, Tailwind 4.3.3):
+
+```bash
+python -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt -c requirements-baseline.lock
+cd console && npm ci && npm run build && npm test
+cd ../public_frontend && npm ci && npm run build && npm test -- --watch=false
+```
+
+La CI esegue inoltre i test bootstrap, i controlli Django e `npm audit` sui due frontend. Per la build Angular su macOS il modulo nativo della cache può interrompersi nel sandbox di Codex; il build e i test sono stati verificati fuori dal sandbox. La dipendenza `django-celery-beat` usa temporaneamente un commit upstream fissato, in attesa di una release compatibile con Django 6.1.
+
+La modalità Keycloak è in preparazione: backend, Console e Public Frontend opzionale hanno client OIDC separati, ma il login con un realm reale non è ancora verificato. Configurazione locale, migration e gate aperti sono in [docs/engineering/keycloak-local.md](docs/engineering/keycloak-local.md). Non abilitare `AUTH_MODE=keycloak` su un'istanza esistente senza seguire quella procedura.
+
+L'immagine Docker usa lo stesso file di vincoli Python. Il controllo `pip install` locale richiede accesso all'indice dei pacchetti; in assenza di rete la build Docker e i test nel container restano la verifica disponibile.
 
 ---
 
 ## Avvio in produzione
+
+La configurazione di produzione non è ancora certificata per un deployment pubblico: autenticazione, credenziali, TLS e routing richiedono verifiche ulteriori. Con `SETTINGS_ENV=production`, `ALLOWED_HOSTS` deve elencare host espliciti: un valore mancante o `*` blocca l'avvio. Il check Django `--deploy` segnala ancora HSTS e redirect HTTPS, da chiudere dopo una prova del proxy e dei certificati. La build prepara gli statici e le migration sono un passaggio di preparazione separato dal processo web.
 
 ### 1. Configurare `.env`
 
@@ -130,6 +159,7 @@ Crea o modifica il file `.env` nella root del progetto con almeno:
 ```bash
 SERVER_NAME=tuodominio.it
 CERTBOT_EMAIL=you@example.com
+SECRET_KEY=valore_casuale_non_predefinito
 
 POSTGRES_DB=mixtumdb
 POSTGRES_USER=mixtumuser

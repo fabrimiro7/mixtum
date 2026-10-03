@@ -1,140 +1,52 @@
 #!/usr/bin/env bash
-# Crea la struttura {nome}_core per estendere Mixtum (progetto derivato).
-# Uso: create-project.sh [nome_progetto]   (default: project → project_core)
-# Non sovrascrive file esistenti.
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT_DIR"
+source_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+template_root="$source_root/templates/instance"
+[[ $# -eq 1 ]] || { printf 'Uso: %s /percorso/nuova-istanza\n' "$0" >&2; exit 2; }
+command -v openssl >/dev/null 2>&1 || { printf 'openssl non disponibile.\n' >&2; exit 1; }
+[[ -f "$template_root/Makefile" ]] || { printf 'Template istanza non trovato.\n' >&2; exit 1; }
 
-# Nome progetto: primo argomento o default "project"
-RAW_NAME="${1:-project}"
-
-# Normalizza a identificatore Python valido: minuscolo, solo [a-z0-9_]
-NORMALIZED=$(echo "$RAW_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_]/_/g' | sed 's/__*/_/g' | sed 's/^_//;s/_$//')
-
-# Se vuoto o non valido dopo normalizzazione, usa "project"
-if [[ -z "$NORMALIZED" ]] || [[ "$NORMALIZED" =~ ^[^a-z] ]]; then
-    echo "Nome non valido o vuoto, uso 'project'."
-    NORMALIZED="project"
-fi
-
-CORE_NAME="${NORMALIZED}_core"
-
-PROJECT_CORE_BASE="${ROOT_DIR}/${CORE_NAME}/settings/base.py"
-
-if [[ -f "$PROJECT_CORE_BASE" ]]; then
-  echo "${CORE_NAME} già presente, skip."
-  exit 0
-fi
-
-echo "Creazione struttura ${CORE_NAME}..."
-
-mkdir -p "${CORE_NAME}"
-mkdir -p "${CORE_NAME}/settings/envs"
-
-# ${CORE_NAME}/__init__.py
-if [[ ! -f "${CORE_NAME}/__init__.py" ]]; then
-  touch "${CORE_NAME}/__init__.py"
-fi
-
-# ${CORE_NAME}/settings/base.py
-cat > "${CORE_NAME}/settings/base.py" << 'PYEOF'
-# Estende Mixtum — non modificare i file in mixtum_core.
-# Aggiungi qui le app e gli override del progetto.
-from mixtum_core.settings import *
-
-INSTALLED_APPS += [
-    # Aggiungi i plugin del progetto, es.:
-    # "plugins.ticket_manager",
-    # "plugins.project_manager",
-]
-PYEOF
-
-# ${CORE_NAME}/settings/__init__.py
-cat > "${CORE_NAME}/settings/__init__.py" << 'PYEOF'
-"""
-Settings progetto derivato: carica Mixtum + base progetto, poi overlay env.
-"""
-import os
-
-from .base import *
-
-SETTINGS_ENV = os.getenv("SETTINGS_ENV", "local").lower()
-if SETTINGS_ENV == "production":
-    from .envs.production import *
-else:
-    from .envs.local import *
-PYEOF
-
-# ${CORE_NAME}/settings/envs/local.py (heredoc senza quote per espandere CORE_NAME)
-cat > "${CORE_NAME}/settings/envs/local.py" << PYEOF
-# Overlay sviluppo locale
-import os
-from ${CORE_NAME}.settings.base import *
-
-DEBUG = True
-ALLOWED_HOSTS = ["*"]
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("POSTGRES_DB", "mixtumdb"),
-        "USER": os.environ.get("POSTGRES_USER", "mixtumuser"),
-        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "mixtumpassword"),
-        "HOST": os.environ.get("POSTGRES_HOST", "db"),
-        "PORT": int(os.environ.get("POSTGRES_PORT", "5432")),
-        "CONN_MAX_AGE": 60,
-    }
+destination="${1%/}"
+[[ -n "$destination" && "$destination" != "." && "$destination" != "/" ]] || {
+    printf 'Scegli una directory di destinazione distinta.\n' >&2; exit 2;
 }
-PYEOF
-
-# ${CORE_NAME}/settings/envs/production.py (heredoc senza quote per espandere CORE_NAME)
-cat > "${CORE_NAME}/settings/envs/production.py" << PYEOF
-# Overlay produzione
-import os
-from ${CORE_NAME}.settings.base import *
-
-DEBUG = False
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h.strip()]
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("POSTGRES_DB", "mixtumdb"),
-        "USER": os.environ.get("POSTGRES_USER", "mixtumuser"),
-        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "mixtumpassword"),
-        "HOST": os.environ.get("POSTGRES_HOST", "db"),
-        "PORT": int(os.environ.get("POSTGRES_PORT", "5432")),
-        "CONN_MAX_AGE": 60,
-    }
+parent="$(dirname "$destination")"
+[[ -d "$parent" ]] || { printf 'La directory padre non esiste: %s\n' "$parent" >&2; exit 1; }
+parent="$(cd "$parent" && pwd -P)"
+destination="$parent/$(basename "$destination")"
+[[ "$destination" != "$source_root" && "$destination" != "$source_root/"* ]] || {
+    printf 'L’istanza deve vivere fuori dal checkout Mixtum.\n' >&2; exit 2;
 }
-PYEOF
-
-# ${CORE_NAME}/settings/envs/__init__.py (per import envs)
-if [[ ! -f "${CORE_NAME}/settings/envs/__init__.py" ]]; then
-  touch "${CORE_NAME}/settings/envs/__init__.py"
+if [[ -e "$destination" ]]; then
+    [[ ! -L "$destination" && -d "$destination" && -z "$(ls -A "$destination")" ]] || {
+        printf 'La destinazione non è vuota: %s\n' "$destination" >&2; exit 1;
+    }
+else
+    mkdir "$destination"
 fi
 
-# ${CORE_NAME}/urls.py
-cat > "${CORE_NAME}/urls.py" << 'PYEOF'
-# Estende le url di Mixtum; aggiungi qui le url dei plugin del progetto.
-from django.urls import path, include
-from mixtum_core.urls import urlpatterns as mixtum_urls
+project_name="$(basename "$destination" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-*//;s/-*$//')"
+[[ -n "$project_name" ]] || { printf 'Nome istanza non valido.\n' >&2; exit 2; }
+secret_key="$(openssl rand -hex 32)"
+database_password="$(openssl rand -hex 24)"
+keycloak_password="$(openssl rand -hex 24)"
+umask 077
+cp -R "$template_root/." "$destination/"
+cp "$source_root/requirements-baseline.lock" "$destination/constraints.txt"
+mkdir -p "$destination/tools"
+cp "$source_root/scripts/build-instance-console.sh" "$destination/tools/build-console.sh"
+mkdir -p "$destination/keycloak"
+cp "$source_root/docker/keycloak/realm-mixtum.json" "$destination/keycloak/realm-mixtum.json"
+sed -e "s|^COMPOSE_PROJECT_NAME=.*|COMPOSE_PROJECT_NAME=$project_name|" \
+    -e "s|^MIXTUM_SOURCE=.*|MIXTUM_SOURCE=$source_root|" \
+    -e "s|^SECRET_KEY=.*|SECRET_KEY=$secret_key|" \
+    -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$database_password|" \
+    -e "s|^KEYCLOAK_ADMIN_PASSWORD=.*|KEYCLOAK_ADMIN_PASSWORD=$keycloak_password|" \
+    "$destination/.env.example" > "$destination/.env"
 
-urlpatterns = mixtum_urls + [
-    # Es.: path("api/tickets/", include("plugins.ticket_manager.urls")),
-]
-PYEOF
-
-echo "Struttura ${CORE_NAME} creata."
-echo ""
-echo "Per usare il progetto derivato:"
-echo "  1. In .env imposta: DJANGO_SETTINGS_MODULE=${CORE_NAME}.settings.envs.local"
-echo "  2. In produzione:   DJANGO_SETTINGS_MODULE=${CORE_NAME}.settings.envs.production"
-echo "  3. Aggiungi le app in ${CORE_NAME}/settings/base.py (INSTALLED_APPS += ...)"
-echo "  4. Aggiungi le url in ${CORE_NAME}/urls.py (urlpatterns = mixtum_urls + [...])"
-echo ""
+printf 'Istanza creata in %s. Configurazione locale in .env (non versionare).\n' "$destination"
+printf 'Prossimi comandi: cd %s && make install-wheels WHEELHOUSE=/percorso/wheelhouse && make check\n' "$destination"
+printf 'Per la Console: make console-build; per Docker: make stage-wheels WHEELHOUSE=/percorso/wheelhouse\n'
+printf 'Per registrare un plugin esterno: make plugin-register PLUGIN_SOURCE=/percorso/plugin\n'
+printf 'L’avvio Docker richiede il daemon attivo: make prepare && make up\n'

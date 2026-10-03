@@ -1,0 +1,9 @@
+.env
+.venv/
+artifacts/
+media/
+staticfiles/
+db.sqlite3
+__pycache__/
+vendor/
+!console/vendor/

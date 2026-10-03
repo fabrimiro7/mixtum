@@ -1,0 +1,13 @@
+<div class="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+  <div class="w-full max-w-md rounded-lg bg-white p-8 shadow-sm">
+    <h1 class="text-2xl font-semibold text-slate-900">Accedi al portale</h1>
+    <p class="mt-3 text-sm text-slate-600">Usa il tuo account per continuare.</p>
+    <button type="button" [disabled]="isLoading" (click)="login()"
+      class="mt-8 w-full rounded-md bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
+      Continua con Keycloak
+    </button>
+    @if (loginError) {
+      <p role="alert" class="mt-4 text-sm text-red-700">Accesso non disponibile. Riprova.</p>
+    }
+  </div>
+</div>

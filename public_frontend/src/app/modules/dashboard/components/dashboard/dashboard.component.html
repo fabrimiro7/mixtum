@@ -1,0 +1,24 @@
+<section aria-labelledby="dashboard-title" class="max-w-3xl">
+  <h1 id="dashboard-title" class="text-2xl font-semibold text-slate-900">Portale</h1>
+  @if ((status$ | async) === 'denied') {
+    <p role="alert" class="mt-6 rounded-md bg-amber-50 p-4 text-amber-900">
+      L’identità Keycloak non è collegata a un account Mixtum autorizzato. Contatta un amministratore.
+    </p>
+  } @else if ((status$ | async) === 'error') {
+    <p role="alert" class="mt-6 rounded-md bg-red-50 p-4 text-red-800">
+      Non è stato possibile caricare la sessione. Verifica la connessione e riprova.
+    </p>
+  } @else if ((workspaces$ | async)?.length === 0) {
+    <p class="mt-6 rounded-md bg-slate-50 p-4 text-slate-700">
+      Non appartieni ancora a un workspace. Chiedi a un amministratore di assegnartene uno.
+    </p>
+  } @else if ((selectedWorkspaceId$ | async) === null) {
+    <p class="mt-6 rounded-md bg-indigo-50 p-4 text-indigo-900">
+      Seleziona un workspace dal menu per iniziare.
+    </p>
+  } @else {
+    <p class="mt-6 text-slate-700">
+      Benvenuto, {{ (currentUser$ | async)?.username || (currentUser$ | async)?.email }}.
+    </p>
+  }
+</section>

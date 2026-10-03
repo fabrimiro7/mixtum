@@ -1,5 +1,12 @@
 from django.urls import path
-from base_modules.attachment.views import *
+from base_modules.attachment.views import (
+    AttachmentCreateView,
+    AttachmentDeleteView,
+    AttachmentDetailView,
+    AttachmentDownloadView,
+    AttachmentListView,
+    AttachmentUpdateView,
+)
 
 urlpatterns = [
     path('create/', AttachmentCreateView.as_view(), name='attachment-create'),
@@ -7,4 +14,5 @@ urlpatterns = [
     path('delete/<int:pk>/', AttachmentDeleteView.as_view(), name='attachment-delete'),
     path('list/', AttachmentListView.as_view(), name='attachment-list'),
     path('details/<int:pk>/', AttachmentDetailView.as_view(), name='attachment-details'),
+    path('download/<int:pk>/', AttachmentDownloadView.as_view(), name='attachment-download'),
 ]

@@ -1,56 +1,62 @@
-# workspace/views.py
 from base_modules.user_manager.models import User
-from rest_framework import viewsets, permissions
+from rest_framework import permissions, viewsets
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from .models import Workspace, WorkspaceUser
-from .serializers import WorkspaceSerializer, WorkspaceUserSerializer, UserSerializer
+from .serializers import UserSerializer, WorkspaceSerializer, WorkspaceUserSerializer
+
+
+class SessionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        memberships = WorkspaceUser.objects.select_related("workspace").filter(user=request.user).order_by("workspace_id")
+        return Response({
+            "user": UserSerializer(request.user).data,
+            "workspaces": [
+                {"id": membership.workspace_id, "name": membership.workspace.workspace_name, "role": membership.role}
+                for membership in memberships
+            ],
+        })
+
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    ViewSet per visualizzare gli utenti (sola lettura).
-    """
-    queryset = User.objects.all()
     serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return User.objects.all()
+        return User.objects.filter(pk=self.request.user.pk)
+
 
 class WorkspaceViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet per il modello Workspace.
-    Fornisce azioni `list`, `create`, `retrieve`, `update`, `partial_update`, `destroy`.
-    """
-    queryset = Workspace.objects.all()
     serializer_class = WorkspaceSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-    # Potresti voler filtrare i workspace in base all'utente loggato
+    def get_permissions(self):
+        if self.action not in ("list", "retrieve"):
+            return [permissions.IsAdminUser()]
+        return super().get_permissions()
+
     def get_queryset(self):
-        user = self.request.user
-        if not user or not user.is_authenticated:
-            return Workspace.objects.none()
-
-        if getattr(user, "is_superuser", False) or getattr(user, "permission", 0) == 100:
+        if self.request.user.is_staff:
             return Workspace.objects.all()
+        return Workspace.objects.filter(workspaceuser__user=self.request.user).distinct()
 
-        return Workspace.objects.filter(workspaceuser__user=user).distinct()
 
 class WorkspaceUserViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet per il modello WorkspaceUser.
-    Permette di gestire l'associazione tra utenti e workspace.
-    """
-    queryset = WorkspaceUser.objects.all()
     serializer_class = WorkspaceUserSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-    # Potresti voler filtrare in base al workspace o all'utente
-    # Esempio: per mostrare solo le membership dell'utente loggato
-    # def get_queryset(self):
-    #     user = self.request.user
-    #     if user.is_authenticated:
-    #         return WorkspaceUser.objects.filter(user=user)
-    #     return WorkspaceUser.objects.none()
+    def get_permissions(self):
+        if self.action not in ("list", "retrieve"):
+            return [permissions.IsAdminUser()]
+        return super().get_permissions()
 
-    # Potresti voler impostare l'utente automaticamente durante la creazione
-    # def perform_create(self, serializer):
-    #     # Se vuoi che un utente possa aggiungere solo se stesso a un workspace
-    #     # o se un admin può aggiungere chiunque.
-    #     # Qui assumiamo che l'user_id sia passato nel payload,
-    #     # altrimenti potresti fare: serializer.save(user=self.request.user)
-    #     # se il campo 'user' non fosse read_only nel serializer e 'user_id' non ci fosse.
-    #     serializer.save()
+    def get_queryset(self):
+        queryset = WorkspaceUser.objects.select_related("workspace", "user")
+        if self.request.user.is_staff:
+            return queryset
+        return queryset.filter(user=self.request.user)

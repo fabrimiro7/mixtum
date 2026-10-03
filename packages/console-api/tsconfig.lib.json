@@ -1,0 +1,15 @@
+{
+  "extends": "../../console/tsconfig.json",
+  "compilerOptions": {
+    "declaration": true,
+    "types": [],
+    "paths": {
+      "@angular/*": ["../../console/node_modules/@angular/*"],
+      "rxjs": ["../../console/node_modules/rxjs"]
+    }
+  },
+  "angularCompilerOptions": {
+    "compilationMode": "partial"
+  },
+  "include": ["src/**/*.ts"]
+}

@@ -109,6 +109,8 @@ console/dist/
 console/.angular/
 console/out-tsc/
 console/coverage/
+.vitest-attachments/
+__screenshots__/
 .angular/
 out-tsc/
 coverage/

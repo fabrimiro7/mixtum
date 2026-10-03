@@ -1,0 +1,5 @@
+<div class="min-h-screen"
+  [style.--mixtum-primary]="(branding$ | async)?.theme?.primary || null"
+  [style.--mixtum-on-primary]="(branding$ | async)?.theme?.on_primary || null">
+  <router-outlet></router-outlet>
+</div>

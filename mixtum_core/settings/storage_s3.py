@@ -1,13 +1,17 @@
 import os
+from django.core.exceptions import ImproperlyConfigured
+from .static_media import STORAGES as LOCAL_STORAGES
 
 
-USE_S3 = os.getenv("USE_S3", "1").lower() in ("1", "true", "yes")
+USE_S3 = os.getenv("USE_S3", "0").lower() in ("1", "true", "yes")
 
 if USE_S3:
 
     AWS_S3_ACCESS_KEY_ID = os.getenv("AWS_S3_ACCESS_KEY_ID", "")
     AWS_S3_SECRET_ACCESS_KEY = os.getenv("AWS_S3_SECRET_ACCESS_KEY", "")
     AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "")
+    if not AWS_STORAGE_BUCKET_NAME:
+        raise ImproperlyConfigured("AWS_STORAGE_BUCKET_NAME è obbligatorio quando USE_S3=1.")
     AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "eu-south-1")
     AWS_S3_SIGNATURE_VERSION = os.getenv("AWS_S3_SIGNATURE_VERSION", "s3v4")
     AWS_S3_ADDRESSING_STYLE = os.getenv("AWS_S3_ADDRESSING_STYLE", "virtual")
@@ -21,14 +25,13 @@ if USE_S3:
 
     AWS_DEFAULT_ACL = None
     AWS_S3_FILE_OVERWRITE = False
-    AWS_QUERYSTRING_AUTH = os.getenv("AWS_QUERYSTRING_AUTH", "0").lower() in ("1", "true", "yes")
+    AWS_QUERYSTRING_AUTH = os.getenv("AWS_QUERYSTRING_AUTH", "1").lower() in ("1", "true", "yes")
     AWS_QUERYSTRING_EXPIRE = 3600
     AWS_S3_OBJECT_PARAMETERS = {
         "CacheControl": os.getenv("AWS_S3_CACHE_CONTROL", "max-age=86400, s-maxage=86400, must-revalidate"),
     }
 
-    # Merge with existing STORAGES
-    STORAGES = dict(globals().get("STORAGES", {}))
+    STORAGES = dict(LOCAL_STORAGES)
 
     # Media -> S3
     STORAGES["default"] = {

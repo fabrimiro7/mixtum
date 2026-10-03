@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mixtum-plugin-external-probe-backend"
+version = "0.1.0"
+description = "External Mixtum plugin composition probe"
+requires-python = ">=3.12"
+dependencies = ["Django>=6.1,<6.2", "djangorestframework>=3.18,<3.19"]
+
+[tool.setuptools]
+packages = ["external_probe"]

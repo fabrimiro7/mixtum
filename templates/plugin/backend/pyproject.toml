@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mixtum-plugin-starter-plugin-backend"
+version = "0.1.0"
+description = "Starter plugin backend for Mixtum"
+requires-python = ">=3.12"
+dependencies = ["Django>=6.1,<6.2", "djangorestframework>=3.18,<3.19"]
+
+[tool.setuptools]
+packages = ["mixtum_starter_plugin", "mixtum_starter_plugin.migrations"]

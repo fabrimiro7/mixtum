@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.core.validators import MinLengthValidator
+from django.conf import settings
 
 # -----------------------------
 # User Manager
@@ -94,7 +95,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     objects = UserManager()
 
     def __str__(self):
-        return self.email
+        return self.email or self.username or f"User {self.pk}"
 
     # Utils
     def is_superadmin(self):
@@ -133,3 +134,18 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name = "Utente"
         verbose_name_plural = "Utenti"
         ordering = ("last_name",)
+
+
+class ExternalIdentity(models.Model):
+    """A verified OIDC identity linked explicitly to one local user."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="external_identity")
+    issuer = models.URLField(max_length=512)
+    subject = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["issuer", "subject"], name="unique_external_identity")]
+
+    def __str__(self):
+        return f"{self.issuer}#{self.subject}"

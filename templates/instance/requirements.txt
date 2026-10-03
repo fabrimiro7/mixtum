@@ -1,0 +1,2 @@
+mixtum-platform-backend==0.1.0
+mixtum-plugin-ticket-backend==0.1.0

@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist/out-tsc",
+    "strict": true,
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "declaration": true,
+    "moduleResolution": "bundler",
+    "target": "ES2022",
+    "module": "ES2022",
+    "types": [],
+    "paths": {
+      "@angular/*": ["./node_modules/@angular/*"],
+      "@mixtum/console-api": ["./node_modules/@mixtum/console-api/dist/types/mixtum-console-api.d.ts"],
+      "rxjs": ["./node_modules/rxjs"],
+      "tslib": ["./node_modules/tslib"]
+    }
+  },
+  "angularCompilerOptions": {"compilationMode": "partial", "strictTemplates": true},
+  "include": ["src/**/*.ts"]
+}

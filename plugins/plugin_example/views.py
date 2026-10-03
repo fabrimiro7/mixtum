@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from base_modules.workspace.permissions import HasSelectedWorkspace
 
 from .models import ExampleModel
 from .serializers import ExampleModelSerializer, ExampleModelWriteSerializer
@@ -13,7 +14,7 @@ class ExampleModelListView(APIView):
     GET  /api/plugin-example/examples/  → lista
     POST /api/plugin-example/examples/  → crea
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasSelectedWorkspace]
 
     def get(self, request):
         items = ExampleModelService.get_list(workspace=request.workspace)
@@ -37,7 +38,7 @@ class ExampleModelDetailView(APIView):
     PATCH  /api/plugin-example/examples/<pk>/  → aggiorna
     DELETE /api/plugin-example/examples/<pk>/  → elimina
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasSelectedWorkspace]
 
     def get_object(self, pk, workspace):
         return ExampleModelService.get_by_id(pk=pk, workspace=workspace)

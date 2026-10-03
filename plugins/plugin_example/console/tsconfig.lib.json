@@ -1,0 +1,19 @@
+{
+  "extends": "../../../console/tsconfig.json",
+  "compilerOptions": {
+    "declaration": true,
+    "types": [],
+    "paths": {
+      "@angular/*": ["../../../console/node_modules/@angular/*"],
+      "@angular/common/http": ["../../../console/node_modules/@angular/common/types/http.d.ts"],
+      "@angular/core/rxjs-interop": ["../../../console/node_modules/@angular/core/types/rxjs-interop.d.ts"],
+      "@mixtum/console-api": ["../../../packages/console-api/dist/types/mixtum-console-api.d.ts"],
+      "rxjs": ["../../../console/node_modules/rxjs"],
+      "tslib": ["../../../console/node_modules/tslib"]
+    }
+  },
+  "angularCompilerOptions": {
+    "compilationMode": "partial"
+  },
+  "include": ["src/**/*.ts"]
+}

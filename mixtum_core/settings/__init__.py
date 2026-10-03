@@ -15,11 +15,9 @@ from .logging_conf import *       # Logging
 from .auth import *               # AUTH_USER_MODEL, DRF default auth, Allauth
 
 # 2) Optional blocks (loaded conditionally by env flags)
-# S3 storage (enable if USE_S3=1)
-try:
+USE_S3 = os.getenv("USE_S3", "0").lower() in ("1", "true", "yes")
+if USE_S3:
     from .storage_s3 import *
-except Exception:
-    pass
 
 # OIDC (only if AUTH_MODE=keycloak)
 if AUTH_MODE == "keycloak":

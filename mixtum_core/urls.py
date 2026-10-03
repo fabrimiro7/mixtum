@@ -17,43 +17,32 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
-
-from base_modules.celery.views import flower_auth
+from mixtum_core import health
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-
-    # Celery Flower
-    path("flower-auth/", flower_auth, name="flower-auth"),
-
-    # Auth and Users (wrapper first so /auth/login and /auth/refresh are ours)
-    path('api/v1/accounts/auth/', include('base_modules.user_manager.headless_wrapper_urls')),
-    path('api/v1/accounts/', include('allauth.urls')),
-    path('api/v1/accounts/_allauth/', include('allauth.headless.urls')),
-    path('api/v1/users/', include('base_modules.user_manager.urls')),
-
-    # Attachments
-    path('api/attachments/', include(('base_modules.attachment.urls', 'attachment'), namespace='attachment')),
-
-    # Links
-    path('api/links/', include(('base_modules.links.urls', 'links'), namespace='links')),
-
-    # Plugin Example (template di riferimento)
-    path('api/plugin-example/', include(('plugins.plugin_example.urls', 'plugin_example'), namespace='plugin_example')),
-
-    # Workspace
+    path('health/live/', health.live, name='health-live'),
+    path('health/ready/', health.ready, name='health-ready'),
     path('api/workspace/', include('base_modules.workspace.urls')),
-
-    # Branding
     path('api/branding/', include('base_modules.branding.urls')),
-
-    # External Integrations
-    path('api/slack/', include(('base_modules.integrations.notifications.urls', 'notifications'), namespace='slack')),
-    path('api/n8n/', include(('base_modules.integrations.automation.urls', 'automation'), namespace='n8n')),
-    # WhatsApp (Twilio) — messaging
-    path('api/whatsapp/', include(('base_modules.integrations.messaging.urls', 'messaging'), namespace='twilio')),
 ]
 
+for plugin in settings.MIXTUM_PLUGINS:
+    urlpatterns.append(path(plugin.url_prefix, include((plugin.urlconf, plugin.id), namespace=plugin.id)))
 
-if getattr(settings, 'AUTH_MODE', 'django') == 'keycloak':
-    urlpatterns += [path('oidc/', include('mozilla_django_oidc.urls'))]
+if getattr(settings, 'AUTH_MODE', 'django') == 'django':
+    from base_modules.celery.views import flower_auth
+
+    # Legacy endpoints stay available only while the current Django auth mode is active.
+    # Each must be scoped and reviewed before being exposed with Keycloak Bearer tokens.
+    urlpatterns += [
+        path('admin/', admin.site.urls),
+        path('flower-auth/', flower_auth, name='flower-auth'),
+        path('api/v1/accounts/auth/', include('base_modules.user_manager.headless_wrapper_urls')),
+        path('api/v1/accounts/', include('allauth.urls')),
+        path('api/v1/accounts/_allauth/', include('allauth.headless.urls')),
+        path('api/v1/users/', include('base_modules.user_manager.urls')),
+        path('api/attachments/', include(('base_modules.attachment.urls', 'attachment'), namespace='attachment')),
+        path('api/slack/', include(('base_modules.integrations.notifications.urls', 'notifications'), namespace='slack')),
+        path('api/n8n/', include(('base_modules.integrations.automation.urls', 'automation'), namespace='n8n')),
+        path('api/whatsapp/', include(('base_modules.integrations.messaging.urls', 'messaging'), namespace='twilio')),
+    ]

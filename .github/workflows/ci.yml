@@ -1,0 +1,154 @@
+name: Mixtum checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: console/package-lock.json
+      - run: python -m unittest discover -s tests -p 'test_bootstrap.py' -v
+      - run: python -m unittest discover -s tests -p 'test_console_bundle.py' -v
+      - run: python -m unittest discover -s tests -p 'test_plugin_generator.py' -v
+      - run: python -m unittest discover -s tests -p 'test_plugin_registration.py' -v
+      - run: python -m unittest discover -s tests -p 'test_volume_snapshot.py' -v
+      - run: python -m unittest discover -s tests -p 'test_local_keycloak_user.py' -v
+      - run: python -m unittest discover -s tests -p 'test_instance_staging_contract.py' -v
+      - run: python -m unittest discover -s tests -p 'test_external_plugin_image.py' -v
+      - run: bash -n scripts/setup.sh scripts/entrypoint.sh scripts/deploy.sh templates/instance/tools/snapshot-volumes.sh templates/instance/tools/restore-volumes.sh
+      - run: python -m pip wheel --no-deps --wheel-dir /tmp/mixtum-plugin-wheels .
+      - run: python scripts/verify-platform-wheel.py /tmp/mixtum-plugin-wheels/mixtum_platform_backend-0.1.0-py3-none-any.whl
+      - run: python -m pip wheel --no-deps --wheel-dir /tmp/mixtum-plugin-wheels ./plugins/plugin_example
+      - run: python -m pip wheel --no-deps --wheel-dir /tmp/mixtum-plugin-wheels ./plugins/links
+      - run: python -m pip wheel --no-deps --wheel-dir /tmp/mixtum-plugin-wheels ./plugins/ticket
+      - name: Clean instance from versioned backend wheels
+        run: |
+          bash scripts/create-project.sh /tmp/mixtum-wheel-proof
+          cd /tmp/mixtum-wheel-proof
+          make install-wheels WHEELHOUSE=/tmp/mixtum-plugin-wheels PYTHON=python
+          make check
+          make wheel-check
+          make stage-wheels WHEELHOUSE=/tmp/mixtum-plugin-wheels PYTHON=python
+          .venv/bin/python -m pip check
+      - run: /tmp/mixtum-wheel-proof/.venv/bin/python -m unittest tests.test_instance_template tests.test_required_secrets tests.test_storage_configuration -v
+      - run: python scripts/verify-external-plugin.py --backend --python /tmp/mixtum-wheel-proof/.venv/bin/python --platform-wheel /tmp/mixtum-plugin-wheels/mixtum_platform_backend-0.1.0-py3-none-any.whl
+      - run: python scripts/verify-external-plugin.py --backend --generated --python /tmp/mixtum-wheel-proof/.venv/bin/python --platform-wheel /tmp/mixtum-plugin-wheels/mixtum_platform_backend-0.1.0-py3-none-any.whl
+      - name: Editable backend reload from external generated plugin
+        run: |
+          /tmp/mixtum-wheel-proof/.venv/bin/python -m pip install 'setuptools>=75' wheel
+          python scripts/verify-external-plugin.py --backend-reload --generated \
+            --python /tmp/mixtum-wheel-proof/.venv/bin/python \
+            --platform-wheel /tmp/mixtum-plugin-wheels/mixtum_platform_backend-0.1.0-py3-none-any.whl
+      - name: Build generated instance backend image
+        run: |
+          docker build -t mixtum-instance-ci /tmp/mixtum-wheel-proof
+          docker run --rm -e SECRET_KEY=ci-only-placeholder -e AUTH_MODE=django \
+            -e POSTGRES_HOST= -e USE_S3=0 mixtum-instance-ci \
+            sh -c 'test "$(id -u)" = 10001 && test ! -e /app/.env && python manage.py check'
+          docker run --rm -e SECRET_KEY=ci-only-placeholder -e AUTH_MODE=django \
+            -e POSTGRES_HOST= -e USE_S3=0 mixtum-instance-ci \
+            python manage.py test mixtum_core.tests --noinput
+      - name: External generated plugin in instance backend image
+        run: python scripts/verify-external-plugin.py --backend-image --generated --wheelhouse /tmp/mixtum-plugin-wheels
+      - name: Build instance Console and install browser
+        run: |
+          npm ci --prefix console
+          ./console/node_modules/.bin/playwright install --with-deps chromium
+          python scripts/package-console-bundle.py /tmp/mixtum-console-0.1.0.tar.gz
+          make -C /tmp/mixtum-wheel-proof console-build CONSOLE_BUNDLE=/tmp/mixtum-console-0.1.0.tar.gz
+      - name: Isolated Keycloak, PostgreSQL and cold recovery
+        run: python scripts/verify-instance-staging.py
+        timeout-minutes: 25
+
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: mixtum_ci
+          POSTGRES_USER: mixtum_ci
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mixtum_ci -d mixtum_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v6
+      - run: docker build -t mixtum-ci .
+      - name: Django check and tests
+        run: |
+          docker run --rm --network host \
+            -e SECRET_KEY=ci-only-placeholder \
+            -e AUTH_MODE=django -e USE_S3=0 \
+            -e POSTGRES_HOST=127.0.0.1 -e POSTGRES_DB=mixtum_ci \
+            -e POSTGRES_USER=mixtum_ci -e POSTGRES_PASSWORD=ci-only-password \
+            mixtum-ci python manage.py check
+          docker run --rm --network host \
+            -e SECRET_KEY=ci-only-placeholder \
+            -e AUTH_MODE=django -e USE_S3=0 \
+            -e POSTGRES_HOST=127.0.0.1 -e POSTGRES_DB=mixtum_ci \
+            -e POSTGRES_USER=mixtum_ci -e POSTGRES_PASSWORD=ci-only-password \
+            mixtum-ci python manage.py test --noinput
+
+  frontend:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [console, public_frontend]
+    defaults:
+      run:
+        working-directory: ${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - if: matrix.app == 'console'
+        run: npm run build:plugin-packages
+      - run: npm run build
+      - if: matrix.app == 'console'
+        name: Build Console from versioned bundle without source checkout
+        run: |
+          npm pack ../plugins/plugin_example/console/dist --pack-destination /tmp --silent
+          python ../scripts/package-console-bundle.py /tmp/mixtum-console-0.1.0.tar.gz
+          bash ../scripts/create-project.sh /tmp/mixtum-console-proof
+          make -C /tmp/mixtum-console-proof console-add-package \
+            CONSOLE_BUNDLE=/tmp/mixtum-console-0.1.0.tar.gz \
+            PACKAGE=/tmp/mixtum-plugin-example-console-0.1.0.tgz
+          make -C /tmp/mixtum-console-proof console-build \
+            CONSOLE_BUNDLE=/tmp/mixtum-console-0.1.0.tar.gz
+      - if: matrix.app == 'console'
+        name: Verify new plugin from external checkout
+        run: python ../scripts/verify-external-plugin.py --frontend
+      - if: matrix.app == 'console'
+        name: Verify generated plugin frontend
+        run: python ../scripts/verify-external-plugin.py --frontend --generated
+      - if: matrix.app == 'console'
+        name: Verify generated plugin development reload
+        run: python ../scripts/verify-external-plugin.py --reload --generated
+      - if: matrix.app == 'console'
+        run: npm test
+      - if: matrix.app == 'public_frontend'
+        run: npm test -- --watch=false
+      - run: npm audit --audit-level=moderate

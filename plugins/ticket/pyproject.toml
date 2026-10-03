@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mixtum-plugin-ticket-backend"
+version = "0.1.0"
+description = "Workspace-scoped Ticket plugin for Mixtum"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "Django>=6.1,<6.2",
+  "djangorestframework>=3.18,<3.19",
+  "django-filter>=26.1,<27",
+]
+
+[tool.setuptools]
+packages = ["plugins.ticket", "plugins.ticket.migrations"]
+
+[tool.setuptools.package-dir]
+"plugins.ticket" = "."

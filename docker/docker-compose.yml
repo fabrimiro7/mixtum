@@ -5,9 +5,8 @@ services:
     build: ..
     env_file: [../.env]
     command: ["web"]
-    volumes: [../:/app]
     expose: ["8000"]
-    depends_on: [db, redis]
+    depends_on: [db]
     environment:
       DJANGO_SETTINGS_MODULE: mixtum_core.settings
     restart: unless-stopped
@@ -17,7 +16,7 @@ services:
     env_file: [../.env]
     command: ["worker"]
     depends_on: [db, redis]
-    volumes: [../:/app]
+    profiles: ["workers"]
     restart: unless-stopped
 
   beat:
@@ -25,12 +24,11 @@ services:
     env_file: [../.env]
     command: ["beat"]
     depends_on: [db, redis]
-    volumes: [../:/app]
+    profiles: ["workers"]
     restart: unless-stopped
 
   nginx:
     image: nginx:alpine
-    container_name: app-nginx-backend
     profiles: ["backend"]
     depends_on:
       - web
@@ -43,7 +41,6 @@ services:
     build:
       context: ..
       dockerfile: nginx/Dockerfile
-    container_name: app-nginx-console
     profiles: ["frontend"]
     depends_on:
       - web
@@ -54,6 +51,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    profiles: ["workers"]
     restart: unless-stopped
 
   db:
@@ -61,19 +59,23 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-mixtumdb}
       POSTGRES_USER: ${POSTGRES_USER:-mixtumuser}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mixtumpassword}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
   keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    image: quay.io/keycloak/keycloak:26.7.5
     profiles: ["oidc"]
     environment:
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-    command: ["start-dev"]
-    ports: ["8080:8080"]
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-}
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://127.0.0.1:8080}
+    command: ["start-dev", "--import-realm"]
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./keycloak/realm-mixtum.json:/opt/keycloak/data/import/realm-mixtum.json:ro
+    ports: ["127.0.0.1:8080:8080"]
     restart: unless-stopped
 
   # -------------------------
@@ -122,3 +124,4 @@ services:
 volumes:
   postgres_data:
   metabase_data:
+  keycloak_data:
