@@ -1,7 +1,9 @@
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
+
+from base_modules.user_manager.models import User
 
 from .models import AssistanceManager, ClientCompany, CompanyMembership, OperatorGrant, Ticket
 
@@ -38,3 +40,38 @@ def create_ticket(*, user, workspace, company_id, title, description):
     return Ticket.objects.create(
         workspace=workspace, company=company, requester=user, title=title, description=description,
     )
+
+
+def assigned_workspace_user(*, workspace, user_id):
+    user = User.objects.filter(
+        pk=user_id, is_active=True, workspaceuser__workspace=workspace,
+    ).distinct().first()
+    if user is None:
+        raise ValidationError({"user_id": "L'utente deve appartenere allo stesso workspace."})
+    return user
+
+
+@transaction.atomic
+def configure_company_membership(*, workspace, company_id, user_id, role=CompanyMembership.REQUESTER):
+    company = get_object_or_404(ClientCompany, pk=company_id, workspace=workspace)
+    user = assigned_workspace_user(workspace=workspace, user_id=user_id)
+    if CompanyMembership.objects.filter(company=company, user=user).exists():
+        raise ValidationError("L'utente è già configurato per questa azienda.")
+    return CompanyMembership.objects.create(company=company, user=user, role=role)
+
+
+@transaction.atomic
+def configure_operator(*, workspace, company_id, user_id):
+    company = get_object_or_404(ClientCompany, pk=company_id, workspace=workspace)
+    user = assigned_workspace_user(workspace=workspace, user_id=user_id)
+    if OperatorGrant.objects.filter(company=company, user=user).exists():
+        raise ValidationError("L'utente è già operatore per questa azienda.")
+    return OperatorGrant.objects.create(company=company, user=user)
+
+
+@transaction.atomic
+def configure_manager(*, workspace, user_id):
+    user = assigned_workspace_user(workspace=workspace, user_id=user_id)
+    if AssistanceManager.objects.filter(workspace=workspace, user=user).exists():
+        raise ValidationError("L'utente è già responsabile assistenza.")
+    return AssistanceManager.objects.create(workspace=workspace, user=user)

@@ -119,7 +119,7 @@ def test_client(tool, config, opener):
             "standardFlowEnabled": False,
             "directAccessGrantsEnabled": True,
             "serviceAccountsEnabled": False,
-            "defaultClientScopes": ["web-origins", "roles", "profile", "email"],
+            "defaultClientScopes": ["web-origins", "roles", "profile", "email", "basic"],
             "protocolMappers": [{
                 "name": "ci-api-audience",
                 "protocol": "openid-connect",
@@ -251,10 +251,18 @@ def first_instance(tool, config, opener):
 
 
 def browser_login(username, password, workspace):
+    environment = os.environ.copy()
+    environment.update({
+        "MIXTUM_CONSOLE_URL": CONSOLE_URL,
+        "MIXTUM_KEYCLOAK_ORIGIN": os.environ.get(
+            "MIXTUM_KEYCLOAK_ORIGIN", "http://127.0.0.1:8080"
+        ),
+        "MIXTUM_API_ORIGIN": WEB_URL,
+    })
     result = subprocess.run(
         ["node", str(ROOT / "console/tools/verify-instance-login.mjs")],
         input=json.dumps({"username": username, "password": password, "workspaceId": workspace}),
-        text=True, capture_output=True, cwd=ROOT, timeout=90,
+        text=True, capture_output=True, cwd=ROOT, timeout=90, env=environment,
     )
     if result.returncode:
         raise StageError("Login Console via browser non riuscito")

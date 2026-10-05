@@ -18,6 +18,8 @@ export class SidebarComponent {
   readonly workspaces$ = this.auth.workspaces$;
   readonly selectedWorkspaceId$ = this.auth.selectedWorkspaceId$;
   readonly branding$ = this.auth.branding$;
+  readonly capabilities$ = this.auth.capabilities$;
+  readonly canManageSelectedWorkspace$ = this.auth.canManageSelectedWorkspace$;
   readonly pluginNavigation = consolePlugins.flatMap(plugin => plugin.navigation);
   logoutError = false;
 

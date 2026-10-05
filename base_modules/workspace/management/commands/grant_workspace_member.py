@@ -55,8 +55,9 @@ class Command(BaseCommand):
             if workspace is None:
                 raise CommandError("Workspace non trovato.")
 
+        initial_role = WorkspaceUser.OWNER if name is not None else WorkspaceUser.MEMBER
         membership, created = WorkspaceUser.objects.get_or_create(
-            user=identity.user, workspace=workspace, defaults={"role": "member"}
+            user=identity.user, workspace=workspace, defaults={"role": initial_role}
         )
         state = "creata" if created else "già presente"
         self.stdout.write(f"Membership {state}: utente {identity.user_id}, workspace {workspace.pk}.")

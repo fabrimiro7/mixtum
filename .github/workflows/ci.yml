@@ -34,6 +34,7 @@ jobs:
       - run: python -m pip wheel --no-deps --wheel-dir /tmp/mixtum-plugin-wheels ./plugins/plugin_example
       - run: python -m pip wheel --no-deps --wheel-dir /tmp/mixtum-plugin-wheels ./plugins/links
       - run: python -m pip wheel --no-deps --wheel-dir /tmp/mixtum-plugin-wheels ./plugins/ticket
+      - run: python -m pip wheel --no-deps --wheel-dir /tmp/mixtum-plugin-wheels ./extensions/demo_support
       - name: Clean instance from versioned backend wheels
         run: |
           bash scripts/create-project.sh /tmp/mixtum-wheel-proof

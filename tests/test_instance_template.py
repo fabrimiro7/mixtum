@@ -58,6 +58,7 @@ class InstanceTemplateTests(unittest.TestCase):
             self.assertNotIn("PYTHONPATH:", compose)
             self.assertNotIn("- .:/instance", compose)
             self.assertIn('command: ["gunicorn"', compose)
+            self.assertIn("SERVE_LOCAL_BRANDING_MEDIA", compose)
             self.assertIn("USER 10001:10001", dockerfile)
             self.assertIn("HEALTHCHECK", dockerfile)
             self.assertIn("/health/ready/", dockerfile)

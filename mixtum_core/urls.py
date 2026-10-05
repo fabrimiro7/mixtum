@@ -14,16 +14,27 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
-from django.urls import path, include
 from django.conf import settings
+from django.contrib import admin
+from django.http import Http404
+from django.urls import include, path
+from django.views.static import serve
+
 from mixtum_core import health
+
+
+def public_branding_media(request, path):
+    """Serve only public branding files from the local instance volume."""
+    if not settings.SERVE_LOCAL_BRANDING_MEDIA or getattr(settings, "USE_S3", False):
+        raise Http404
+    return serve(request, path, document_root=settings.MEDIA_ROOT / "branding")
 
 urlpatterns = [
     path('health/live/', health.live, name='health-live'),
     path('health/ready/', health.ready, name='health-ready'),
     path('api/workspace/', include('base_modules.workspace.urls')),
     path('api/branding/', include('base_modules.branding.urls')),
+    path('media/branding/<path:path>', public_branding_media, name='public-branding-media'),
 ]
 
 for plugin in settings.MIXTUM_PLUGINS:

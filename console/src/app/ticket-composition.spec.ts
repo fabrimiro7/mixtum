@@ -4,7 +4,11 @@ import { Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { BehaviorSubject } from 'rxjs';
 
-import { MIXTUM_API_BASE_URL, MIXTUM_SELECTED_WORKSPACE_ID } from '@mixtum/console-api';
+import {
+  MIXTUM_API_BASE_URL,
+  MIXTUM_CAN_MANAGE_SELECTED_WORKSPACE,
+  MIXTUM_SELECTED_WORKSPACE_ID,
+} from '@mixtum/console-api';
 import { ticketConsolePlugin } from '@mixtum/plugin-ticket-console';
 import { consolePlugins, selectConsolePlugins } from '../instance/plugins';
 
@@ -17,11 +21,16 @@ describe('Ticket Console plugin', () => {
     open(id: number): Promise<void>;
     more(): Promise<void>;
   }
+  interface TicketConfigurationPage {
+    companyName: string;
+    createCompany(): Promise<void>;
+  }
   const endpoint = 'http://127.0.0.1:8000/api/plugin-ticket/tickets/';
   const companiesEndpoint = 'http://127.0.0.1:8000/api/plugin-ticket/companies/';
   const item = { id: 1, company: 2, company_name: 'Acme', title: 'Errore',
     description: 'Dettaglio', status: 'open', created_at: '2026-10-02T10:00:00Z' };
   let workspaceIds: BehaviorSubject<number | null>;
+  let canManage: BehaviorSubject<boolean>;
   let controller: HttpTestingController;
 
   async function createPage() {
@@ -29,12 +38,19 @@ describe('Ticket Console plugin', () => {
     return TestBed.createComponent(component);
   }
 
+  async function createConfigurationPage() {
+    const component = await (ticketConsolePlugin.routes[1].loadComponent!() as Promise<Type<TicketConfigurationPage>>);
+    return TestBed.createComponent(component);
+  }
+
   beforeEach(() => {
     workspaceIds = new BehaviorSubject<number | null>(null);
+    canManage = new BehaviorSubject<boolean>(false);
     TestBed.configureTestingModule({
       providers: [
         { provide: MIXTUM_API_BASE_URL, useValue: 'http://127.0.0.1:8000' },
         { provide: MIXTUM_SELECTED_WORKSPACE_ID, useValue: workspaceIds.asObservable() },
+        { provide: MIXTUM_CAN_MANAGE_SELECTED_WORKSPACE, useValue: canManage.asObservable() },
         provideHttpClient(), provideHttpClientTesting(),
       ],
     });
@@ -47,6 +63,7 @@ describe('Ticket Console plugin', () => {
     expect(consolePlugins.map(plugin => plugin.id)).toContain('ticket');
     expect(selectConsolePlugins(['links'], [ticketConsolePlugin])).toEqual([]);
     expect(ticketConsolePlugin.routes[0].path).toBe('tickets');
+    expect(ticketConsolePlugin.navigation[1].requiresWorkspaceManagement).toBe(true);
   });
 
   it('lists, reads detail and creates a request for an authorized company', async () => {
@@ -121,5 +138,48 @@ describe('Ticket Console plugin', () => {
     controller.expectNone('https://attacker.example/tickets/?offset=1');
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Impossibile caricare');
+  });
+
+  it('loads configuration only for a workspace manager and reacts to permission revocation', async () => {
+    const fixture = await createConfigurationPage();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Seleziona un workspace');
+    workspaceIds.next(7);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Non puoi più configurare');
+    controller.expectNone('http://127.0.0.1:8000/api/plugin-ticket/configuration/');
+
+    canManage.next(true);
+    controller.expectOne('http://127.0.0.1:8000/api/plugin-ticket/configuration/').flush({
+      companies: [], managers: [], available_users: [{ id: 2, username: 'owner', email: 'owner@example.test' }],
+    });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Nessuna azienda configurata');
+
+    canManage.next(false);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Non puoi più configurare');
+  });
+
+  it('creates a company and shows backend permission revocation', async () => {
+    const fixture = await createConfigurationPage();
+    fixture.detectChanges();
+    workspaceIds.next(7);
+    canManage.next(true);
+    controller.expectOne('http://127.0.0.1:8000/api/plugin-ticket/configuration/').flush({
+      companies: [], managers: [], available_users: [],
+    });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    fixture.componentInstance.companyName = 'Acme';
+    const creating = fixture.componentInstance.createCompany();
+    const request = controller.expectOne('http://127.0.0.1:8000/api/plugin-ticket/configuration/companies/');
+    expect(request.request.body).toEqual({ name: 'Acme' });
+    request.flush({ detail: 'Forbidden' }, { status: 403, statusText: 'Forbidden' });
+    await creating;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Non puoi più configurare');
   });
 });

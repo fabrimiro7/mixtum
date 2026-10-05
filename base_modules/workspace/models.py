@@ -26,9 +26,13 @@ class WorkspaceUser(models.Model):
     Modello per collegare un Utente a un Workspace.
     Questo modello rappresenta l'appartenenza di un utente a uno specifico workspace.
     """
+    MEMBER = "member"
+    OWNER = "owner"
+    ROLES = ((MEMBER, "Membro"), (OWNER, "Gestore"))
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Utente")
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, verbose_name="Workspace")
-    role = models.CharField(max_length=50, default='member', verbose_name="Ruolo")
+    role = models.CharField(max_length=50, choices=ROLES, default=MEMBER, verbose_name="Ruolo")
     date_joined = models.DateTimeField(auto_now_add=True, verbose_name="Data di Adesione")
 
     def __str__(self):
@@ -39,3 +43,28 @@ class WorkspaceUser(models.Model):
         verbose_name_plural = "Utenti Workspace"
         unique_together = ('user', 'workspace')
         ordering = ['workspace', 'user']
+
+
+class AdminAuditEvent(models.Model):
+    """Persistent, credential-free record of administrative mutations."""
+
+    SUCCESS = "success"
+    DENIED = "denied"
+    OUTCOMES = ((SUCCESS, "Successo"), (DENIED, "Negato"))
+
+    actor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="admin_audit_events",
+    )
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.SET_NULL, null=True, blank=True, related_name="admin_audit_events",
+    )
+    target_user = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="targeted_admin_audit_events",
+    )
+    action = models.CharField(max_length=80)
+    outcome = models.CharField(max_length=16, choices=OUTCOMES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+        indexes = [models.Index(fields=("workspace", "created_at"), name="admin_audit_workspace_idx")]

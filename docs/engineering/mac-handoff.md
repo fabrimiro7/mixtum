@@ -1,5 +1,7 @@
 # Prova Mixtum su un secondo Mac
 
+> Documento storico per l'archivio r3 del 2026-10-03. Per gli artefatti v0.1 finali, il bootstrap amministrativo, l'aggiornamento e il recovery verificato usare [Mixtum v0.1 locale/staging](v01-local-release.md) e la guida dell'istanza corrente. Le indicazioni sotto restano valide soltanto per riprodurre quello specifico handoff.
+
 Questo è uno snapshot tecnico del checkout corrente, non una release pubblica. Contiene sorgenti (anche modifiche non committate), quattro wheel backend `0.1.0` e un bundle Console coordinato. Non contiene `.env`, dati, volumi, `node_modules` o credenziali. Non trasferire una vecchia istanza per questa prima prova.
 
 Se il branch Git `codex/mixtum-handoff-2026-10-04` è disponibile, usarlo per continuare lo sviluppo sull'altro Mac: include anche il [piano consolidato](../plans/2026-10-03-stato-e-roadmap-handoff.md). L'archivio r3 resta utile per una prova isolata con wheel e bundle già costruiti; il piano consolidato è stato scritto dopo r3 e va copiato separatamente quando si usa soltanto l'archivio.

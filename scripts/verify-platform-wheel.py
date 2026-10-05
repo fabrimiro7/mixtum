@@ -17,6 +17,8 @@ def verify(wheel_path: Path, repository_root: Path) -> None:
         "base_modules/user_manager/models.py",
         "base_modules/workspace/models.py",
         "base_modules/workspace/permissions.py",
+        "base_modules/workspace/services.py",
+        "base_modules/workspace/management/commands/grant_platform_admin.py",
         "base_modules/workspace/management/commands/grant_workspace_member.py",
         "base_modules/key_manager/models.py",
         "base_modules/celery/views.py",

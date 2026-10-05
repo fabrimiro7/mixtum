@@ -181,6 +181,7 @@ class StagingContractTests(unittest.TestCase):
         self.assertEqual(client["clientId"], client_id)
         self.assertTrue(client["directAccessGrantsEnabled"])
         self.assertFalse(client["standardFlowEnabled"])
+        self.assertIn("basic", client["defaultClientScopes"])
         self.assertEqual(client["protocolMappers"][0]["config"]["included.custom.audience"], "mixtum-api")
         realm = json.loads((ROOT / "docker/keycloak/realm-mixtum.json").read_text())
         self.assertFalse(any(item.get("directAccessGrantsEnabled") for item in realm["clients"]))

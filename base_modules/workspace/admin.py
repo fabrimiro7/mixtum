@@ -1,6 +1,6 @@
 # workspace/admin.py
 from django.contrib import admin
-from .models import Workspace, WorkspaceUser
+from .models import AdminAuditEvent, Workspace, WorkspaceUser
 
 @admin.register(Workspace)
 class WorkspaceAdmin(admin.ModelAdmin):
@@ -21,3 +21,19 @@ class WorkspaceUserAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'workspace__workspace_name') #
     list_filter = ('workspace', 'date_joined')
     autocomplete_fields = ['user', 'workspace'] 
+
+
+@admin.register(AdminAuditEvent)
+class AdminAuditEventAdmin(admin.ModelAdmin):
+    list_display = ('action', 'outcome', 'actor', 'workspace', 'target_user', 'created_at')
+    list_filter = ('action', 'outcome', 'created_at')
+    readonly_fields = ('actor', 'workspace', 'target_user', 'action', 'outcome', 'created_at')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

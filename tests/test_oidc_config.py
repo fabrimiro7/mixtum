@@ -26,6 +26,7 @@ class OidcLocalConfigTests(unittest.TestCase):
                     f"http://127.0.0.1:{port}", f"http://localhost:{port}",
                 ])
                 self.assertNotIn("secret", client)
+                self.assertIn("basic", client["defaultClientScopes"])
                 self.assertEqual(
                     client["protocolMappers"][0]["config"]["included.custom.audience"], "mixtum-api",
                 )

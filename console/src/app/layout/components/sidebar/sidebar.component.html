@@ -20,9 +20,15 @@
   <nav aria-label="Navigazione principale" class="mt-10">
     <a routerLink="/dashboard" routerLinkActive="bg-indigo-50 text-indigo-700"
       class="block rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Dashboard</a>
+    @if ((capabilities$ | async)?.platform_admin || (canManageSelectedWorkspace$ | async)) {
+      <a routerLink="/administration" routerLinkActive="bg-indigo-50 text-indigo-700"
+        class="mt-1 block rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Amministrazione</a>
+    }
     @for (item of pluginNavigation; track item.path) {
-      <a [routerLink]="item.path" routerLinkActive="bg-indigo-50 text-indigo-700"
-        class="mt-1 block rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">{{ item.label }}</a>
+      @if (!item.requiresWorkspaceManagement || (canManageSelectedWorkspace$ | async)) {
+        <a [routerLink]="item.path" routerLinkActive="bg-indigo-50 text-indigo-700"
+          class="mt-1 block rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">{{ item.label }}</a>
+      }
     }
   </nav>
 

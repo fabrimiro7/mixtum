@@ -11,6 +11,11 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+# The instance image can expose only the public branding subtree when it uses
+# the local media volume. Private media must use authenticated download views.
+SERVE_LOCAL_BRANDING_MEDIA = os.environ.get(
+    "SERVE_LOCAL_BRANDING_MEDIA", "0"
+).lower() in ("1", "true", "yes")
 
 # Ensure STORAGES dict exists
 STORAGES = globals().get("STORAGES", {})

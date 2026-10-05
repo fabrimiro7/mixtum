@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, firstValueFrom } from 'rxjs';
+import { BehaviorSubject, combineLatest, firstValueFrom, map } from 'rxjs';
 
 import { KEYCLOAK_CLIENT, MIXTUM_CONFIG } from '../runtime-config';
 
@@ -13,12 +13,20 @@ export interface UserProfile {
 export interface WorkspaceSummary {
   id: number;
   name: string;
-  role: string;
+  role: string | null;
+  can_manage: boolean;
+}
+
+export interface SessionCapabilities {
+  platform_admin: boolean;
+  manage_global_branding: boolean;
+  managed_workspace_ids: number[];
 }
 
 interface SessionResponse {
   user: UserProfile;
   workspaces: WorkspaceSummary[];
+  capabilities: SessionCapabilities;
 }
 
 export interface BrandingSummary {
@@ -40,6 +48,11 @@ export class AuthService {
   private readonly selectedWorkspaceSubject = new BehaviorSubject<number | null>(null);
   private readonly statusSubject = new BehaviorSubject<SessionStatus>('signed-out');
   private readonly brandingSubject = new BehaviorSubject<BrandingSummary | null>(null);
+  private readonly capabilitiesSubject = new BehaviorSubject<SessionCapabilities>({
+    platform_admin: false,
+    manage_global_branding: false,
+    managed_workspace_ids: [],
+  });
   private brandingRequest = 0;
 
   readonly currentUser$ = this.currentUserSubject.asObservable();
@@ -47,6 +60,12 @@ export class AuthService {
   readonly selectedWorkspaceId$ = this.selectedWorkspaceSubject.asObservable();
   readonly status$ = this.statusSubject.asObservable();
   readonly branding$ = this.brandingSubject.asObservable();
+  readonly capabilities$ = this.capabilitiesSubject.asObservable();
+  readonly canManageSelectedWorkspace$ = combineLatest([
+    this.workspacesSubject, this.selectedWorkspaceSubject, this.capabilitiesSubject,
+  ]).pipe(map(([workspaces, selected, capabilities]) => capabilities.platform_admin || (
+    selected !== null && workspaces.some(workspace => workspace.id === selected && workspace.can_manage)
+  )));
 
   isAuthenticated(): boolean {
     return this.keycloak.authenticated === true;
@@ -86,6 +105,11 @@ export class AuthService {
       ));
       this.currentUserSubject.next(session.user);
       this.workspacesSubject.next(session.workspaces);
+      this.capabilitiesSubject.next(session.capabilities ?? {
+        platform_admin: false,
+        manage_global_branding: false,
+        managed_workspace_ids: [],
+      });
       const previous = Number(sessionStorage.getItem('mixtum.workspaceId'));
       this.selectedWorkspaceSubject.next(
         session.workspaces.some(workspace => workspace.id === previous) ? previous : null,
@@ -119,6 +143,11 @@ export class AuthService {
     this.workspacesSubject.next([]);
     this.selectedWorkspaceSubject.next(null);
     this.statusSubject.next('signed-out');
+    this.capabilitiesSubject.next({
+      platform_admin: false,
+      manage_global_branding: false,
+      managed_workspace_ids: [],
+    });
     sessionStorage.removeItem('mixtum.workspaceId');
   }
 

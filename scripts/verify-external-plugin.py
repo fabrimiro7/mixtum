@@ -304,7 +304,9 @@ def main():
         temp_root = Path(directory)
         checkout, instance, plugin_id, module, chunk_name = prepare(temp_root, args.generated)
         if args.backend:
-            verify_backend(checkout, instance, temp_root, args.python.resolve(), args.platform_wheel.resolve(),
+            # Resolving bin/python follows the virtualenv symlink to the base
+            # interpreter and drops the environment's installed dependencies.
+            verify_backend(checkout, instance, temp_root, args.python.absolute(), args.platform_wheel.resolve(),
                            plugin_id, module, args.generated)
         elif args.backend_image:
             verify_backend_image(checkout, instance, temp_root, args.wheelhouse.resolve(), plugin_id, module)

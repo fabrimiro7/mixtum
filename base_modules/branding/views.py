@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from base_modules.workspace.models import Workspace
+from base_modules.workspace.models import AdminAuditEvent
+from base_modules.workspace.services import can_manage_workspace, record_admin_event
 from .constants import DEFAULT_COLORS
 from .models import BrandingSettings
 from .serializers import BrandingSettingsSerializer
@@ -17,9 +19,7 @@ class IsSuperAdmin(permissions.BasePermission):
         user = getattr(request, "user", None)
         if not user or not user.is_authenticated:
             return False
-        if getattr(user, "is_superuser", False):
-            return True
-        return getattr(user, "permission", 0) == 100
+        return getattr(user, "is_superuser", False)
 
 
 def _file_url(request, file_field):
@@ -84,6 +84,11 @@ class GlobalBrandingView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        record_admin_event(
+            actor=request.user,
+            action="branding.global.update",
+            outcome=AdminAuditEvent.SUCCESS,
+        )
         return Response(serializer.data)
 
 
@@ -91,7 +96,7 @@ class WorkspaceBrandingView(APIView):
     def get_permissions(self):
         if self.request.method in permissions.SAFE_METHODS:
             return [permissions.IsAuthenticated()]
-        return [IsSuperAdmin()]
+        return [permissions.IsAuthenticated()]
 
     def get(self, request, workspace_id: int):
         workspace = _visible_workspace(request, workspace_id)
@@ -110,13 +115,21 @@ class WorkspaceBrandingView(APIView):
         return Response(serializer.data)
 
     def patch(self, request, workspace_id: int):
-        workspace = get_object_or_404(Workspace, pk=workspace_id)
+        workspace = _visible_workspace(request, workspace_id)
+        if not can_manage_workspace(user=request.user, workspace_id=workspace.pk):
+            raise PermissionDenied("Solo un gestore del workspace può modificarne il branding.")
         instance, _created = BrandingSettings.objects.get_or_create(workspace=workspace)
         serializer = BrandingSettingsSerializer(
             instance, data=request.data, partial=True, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        record_admin_event(
+            actor=request.user,
+            action="branding.workspace.update",
+            outcome=AdminAuditEvent.SUCCESS,
+            workspace=workspace,
+        )
         return Response(serializer.data)
 
 

@@ -4,7 +4,7 @@ from django.test import RequestFactory, TestCase
 from rest_framework.test import APIClient
 
 from base_modules.user_manager.models import User
-from base_modules.workspace.models import Workspace, WorkspaceUser
+from base_modules.workspace.models import AdminAuditEvent, Workspace, WorkspaceUser
 from plugins.ticket.models import AssistanceManager, ClientCompany, CompanyMembership, OperatorGrant, Ticket
 
 
@@ -22,6 +22,11 @@ class TicketApiTests(TestCase):
         self.manager = self.user("manager")
         self.outsider = self.user("outsider")
         self.foreign_user = self.user("foreign-user", self.other_workspace)
+        self.owner = self.user("owner")
+        WorkspaceUser.objects.filter(user=self.owner, workspace=self.workspace).update(role=WorkspaceUser.OWNER)
+        self.central = User.objects.create_user("central", "central@example.test")
+        self.central.is_superuser = True
+        self.central.save(update_fields=("is_superuser",))
         for user in (self.requester, self.colleague, self.referent):
             CompanyMembership.objects.create(
                 company=self.a, user=user,
@@ -128,3 +133,90 @@ class TicketApiTests(TestCase):
         self.assertFalse(admin.site._registry[Ticket].has_module_permission(request))
         request.user = User.objects.create_superuser("ticket-root", "ticket-root@example.test", password="unused")
         self.assertTrue(admin.site._registry[Ticket].has_module_permission(request))
+
+    def test_platform_admin_does_not_implicitly_gain_ticket_access(self):
+        self.as_user(self.central)
+        self.assertEqual(self.client.get(self.url, **self.header).status_code, 403)
+
+    def test_configuration_requires_owner_or_platform_admin(self):
+        url = "/api/plugin-ticket/configuration/"
+        self.assertIn(self.client.get(url, **self.header).status_code, (401, 403))
+        self.as_user(self.requester)
+        self.assertEqual(self.client.get(url, **self.header).status_code, 403)
+        self.as_user(self.foreign_user)
+        self.assertEqual(self.client.get(url, **self.header).status_code, 403)
+
+        self.as_user(self.owner)
+        response = self.client.get(url, **self.header)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual({item["id"] for item in response.data["companies"]}, {self.a.pk, self.b.pk})
+        self.assertNotIn(self.foreign_user.pk, {item["id"] for item in response.data["available_users"]})
+
+        self.as_user(self.central)
+        self.assertEqual(self.client.get(url, **self.header).status_code, 200)
+
+    def test_owner_configures_company_roles_operators_and_managers_in_workspace(self):
+        self.as_user(self.owner)
+        company_response = self.client.post(
+            "/api/plugin-ticket/configuration/companies/", {"name": "Configured"}, **self.header,
+        )
+        self.assertEqual(company_response.status_code, 201)
+        company_id = company_response.data["id"]
+        self.assertEqual(self.client.post(
+            "/api/plugin-ticket/configuration/companies/", {"name": "Configured"}, **self.header,
+        ).status_code, 400)
+
+        membership_url = f"/api/plugin-ticket/configuration/companies/{company_id}/memberships/"
+        membership_response = self.client.post(
+            membership_url, {"user_id": self.outsider.pk, "role": CompanyMembership.REFERENT}, **self.header,
+        )
+        self.assertEqual(membership_response.status_code, 201)
+        membership_id = membership_response.data["id"]
+        self.assertEqual(self.client.post(
+            membership_url, {"user_id": self.foreign_user.pk}, **self.header,
+        ).status_code, 400)
+        self.assertEqual(self.client.patch(
+            f"/api/plugin-ticket/configuration/memberships/{membership_id}/",
+            {"role": CompanyMembership.REQUESTER}, **self.header,
+        ).status_code, 200)
+
+        operator_response = self.client.post(
+            f"/api/plugin-ticket/configuration/companies/{company_id}/operators/",
+            {"user_id": self.operator.pk}, **self.header,
+        )
+        self.assertEqual(operator_response.status_code, 201)
+        manager_response = self.client.post(
+            "/api/plugin-ticket/configuration/managers/", {"user_id": self.owner.pk}, **self.header,
+        )
+        self.assertEqual(manager_response.status_code, 201)
+        self.assertEqual(self.client.post(
+            "/api/plugin-ticket/configuration/managers/", {"user_id": self.foreign_user.pk}, **self.header,
+        ).status_code, 400)
+
+        self.assertEqual(self.client.delete(
+            f"/api/plugin-ticket/configuration/operators/{operator_response.data['id']}/", **self.header,
+        ).status_code, 204)
+        self.assertEqual(self.client.delete(
+            f"/api/plugin-ticket/configuration/managers/{manager_response.data['id']}/", **self.header,
+        ).status_code, 204)
+        self.assertEqual(self.client.delete(
+            f"/api/plugin-ticket/configuration/memberships/{membership_id}/", **self.header,
+        ).status_code, 204)
+        self.assertFalse(CompanyMembership.objects.filter(pk=membership_id).exists())
+        self.assertTrue(AdminAuditEvent.objects.filter(
+            actor=self.owner, workspace=self.workspace, action="ticket.company.create",
+        ).exists())
+
+    def test_configuration_objects_from_other_workspace_are_not_addressable(self):
+        self.as_user(self.owner)
+        foreign_membership = CompanyMembership.objects.get(company=self.foreign, user=self.foreign_user)
+        self.assertEqual(self.client.patch(
+            f"/api/plugin-ticket/configuration/memberships/{foreign_membership.pk}/",
+            {"role": CompanyMembership.REFERENT}, **self.header,
+        ).status_code, 404)
+        self.assertEqual(self.client.patch(
+            f"/api/plugin-ticket/configuration/companies/{self.foreign.pk}/",
+            {"name": "Escalated"}, **self.header,
+        ).status_code, 404)
+        self.foreign.refresh_from_db()
+        self.assertEqual(self.foreign.name, "Foreign")
