@@ -22,6 +22,6 @@ async function start(): Promise<void> {
 }
 
 start().catch((error) => {
-  console.error('Mixtum Console could not start', error);
+  console.error('AI 4 ISO 27001 & NIS2 Console could not start', error);
   document.body.textContent = 'La Console non è disponibile. Controlla la configurazione e riprova.';
 });

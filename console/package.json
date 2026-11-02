@@ -5,7 +5,7 @@
     "ng": "ng",
     "start": "ng serve --poll 1000 --prebundle=false",
     "build": "ng build",
-    "build:plugin-packages": "ng-packagr -p ../packages/console-api/ng-package.json -c ../packages/console-api/tsconfig.lib.json && ng-packagr -p ../plugins/plugin_example/console/ng-package.json -c ../plugins/plugin_example/console/tsconfig.lib.json && ng-packagr -p ../plugins/links/console/ng-package.json -c ../plugins/links/console/tsconfig.lib.json && ng-packagr -p ../plugins/ticket/console/ng-package.json -c ../plugins/ticket/console/tsconfig.lib.json && ng-packagr -p ../extensions/demo_support/console/ng-package.json -c ../extensions/demo_support/console/tsconfig.lib.json",
+    "build:plugin-packages": "ng-packagr -p ../packages/console-api/ng-package.json -c ../packages/console-api/tsconfig.lib.json && ng-packagr -p ../plugins/plugin_example/console/ng-package.json -c ../plugins/plugin_example/console/tsconfig.lib.json && ng-packagr -p ../plugins/links/console/ng-package.json -c ../plugins/links/console/tsconfig.lib.json && ng-packagr -p ../plugins/ticket/console/ng-package.json -c ../plugins/ticket/console/tsconfig.lib.json && ng-packagr -p ../plugins/documents/console/ng-package.json -c ../plugins/documents/console/tsconfig.lib.json && ng-packagr -p ../extensions/demo_support/console/ng-package.json -c ../extensions/demo_support/console/tsconfig.lib.json",
     "watch": "ng build --watch --configuration development",
     "test": "bash ../scripts/test-console-browser.sh"
   },
@@ -24,6 +24,7 @@
     "@mixtum/plugin-example-console": "file:../plugins/plugin_example/console",
     "@mixtum/plugin-links-console": "file:../plugins/links/console",
     "@mixtum/plugin-ticket-console": "file:../plugins/ticket/console",
+    "@mixtum/plugin-documents-console": "file:../plugins/documents/console",
     "@mixtum/extension-demo-support-console": "file:../extensions/demo_support/console",
     "keycloak-js": "26.2.4",
     "rxjs": "~7.8.0",

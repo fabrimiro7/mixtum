@@ -1,9 +1,9 @@
 <div class="flex h-full flex-col py-6">
-  <a routerLink="/dashboard" class="mixtum-brand-border flex items-center gap-2 border-l-4 pl-3 text-xl font-bold tracking-tight text-slate-900">
+  <a routerLink="/dashboard" class="mixtum-brand-border flex min-w-0 items-center gap-2 border-l-4 pl-3 text-base font-bold leading-tight tracking-tight text-slate-900 sm:text-lg">
     @if ((branding$ | async)?.logo_compact; as logo) {
       <img [src]="logo" alt="" class="h-8 w-8 object-contain" />
     }
-    Mixtum
+    <span class="min-w-0 break-words">AI 4 ISO 27001 &amp; NIS2</span>
   </a>
 
   <div class="mt-10">
@@ -24,8 +24,8 @@
       <a routerLink="/administration" routerLinkActive="bg-indigo-50 text-indigo-700"
         class="mt-1 block rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Amministrazione</a>
     }
-    @for (item of pluginNavigation; track item.path) {
-      @if (!item.requiresWorkspaceManagement || (canManageSelectedWorkspace$ | async)) {
+    @for (item of productNavigation; track item.path) {
+      @if (isVisible(item.productId, (selectedWorkspaceId$ | async), (workspaces$ | async) ?? []) && (!item.requiresWorkspaceManagement || (canManageSelectedWorkspace$ | async))) {
         <a [routerLink]="item.path" routerLinkActive="bg-indigo-50 text-indigo-700"
           class="mt-1 block rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">{{ item.label }}</a>
       }

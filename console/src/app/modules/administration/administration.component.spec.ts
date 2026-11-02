@@ -17,7 +17,7 @@ describe('AdministrationComponent', () => {
 
   beforeEach(() => {
     capabilities = new BehaviorSubject<SessionCapabilities>({
-      platform_admin: false, manage_global_branding: false, managed_workspace_ids: [7],
+      platform_admin: false, manage_global_branding: false, managed_workspace_ids: [7], manage_ai_workspace_ids: [7],
     });
     workspaces = new BehaviorSubject<WorkspaceSummary[]>([
       { id: 7, name: 'Managed', role: 'owner', can_manage: true },
@@ -56,7 +56,9 @@ describe('AdministrationComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Branding workspace');
 
     workspaces.next([{ id: 7, name: 'Managed', role: 'member', can_manage: false }]);
-    capabilities.next({ platform_admin: false, manage_global_branding: false, managed_workspace_ids: [] });
+    capabilities.next({
+      platform_admin: false, manage_global_branding: false, managed_workspace_ids: [], manage_ai_workspace_ids: [],
+    });
     await new Promise(resolve => setTimeout(resolve, 0));
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('non sono più disponibili');

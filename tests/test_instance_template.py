@@ -37,6 +37,8 @@ class InstanceTemplateTests(unittest.TestCase):
             self.assertTrue((destination / "tools/restore-volumes.sh").exists())
             self.assertTrue((destination / "tools/validate-volume-archives.py").exists())
             self.assertTrue((destination / "tools/create-local-keycloak-user.py").exists())
+            self.assertTrue((destination / "tools/configure-local-keycloak-theme.py").exists())
+            self.assertTrue((destination / "tools/keycloak_admin.py").exists())
             self.assertTrue((destination / "tools/register-plugin.py").exists())
             self.assertEqual(
                 (destination / "keycloak/realm-mixtum.json").read_bytes(),
@@ -54,6 +56,9 @@ class InstanceTemplateTests(unittest.TestCase):
             self.assertIn("context: .", compose)
             self.assertNotIn("context: ${MIXTUM_SOURCE}", compose)
             self.assertIn("./keycloak/realm-mixtum.json", compose)
+            self.assertIn("context: ./keycloak", compose)
+            self.assertIn("dockerfile: Containerfile", compose)
+            self.assertNotIn("image: quay.io/keycloak/keycloak", compose)
             self.assertNotIn("${MIXTUM_SOURCE}", compose)
             self.assertNotIn("PYTHONPATH:", compose)
             self.assertNotIn("- .:/instance", compose)
@@ -63,6 +68,7 @@ class InstanceTemplateTests(unittest.TestCase):
             self.assertIn("HEALTHCHECK", dockerfile)
             self.assertIn("/health/ready/", dockerfile)
             self.assertIn("python manage.py migrate --noinput", (destination / "Makefile").read_text())
+            self.assertIn("keycloak-theme-apply", (destination / "Makefile").read_text())
             self.assertEqual(subprocess.run(["make", "check-config"], cwd=destination, capture_output=True).returncode, 0)
             for name in ("mixtum_core", "base_modules", "plugins"):
                 self.assertFalse((destination / name).exists())

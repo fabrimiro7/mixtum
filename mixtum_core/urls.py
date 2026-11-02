@@ -33,6 +33,7 @@ urlpatterns = [
     path('health/live/', health.live, name='health-live'),
     path('health/ready/', health.ready, name='health-ready'),
     path('api/workspace/', include('base_modules.workspace.urls')),
+    path('api/ai-labs/', include('base_modules.ai_labs.urls')),
     path('api/branding/', include('base_modules.branding.urls')),
     path('media/branding/<path:path>', public_branding_media, name='public-branding-media'),
 ]

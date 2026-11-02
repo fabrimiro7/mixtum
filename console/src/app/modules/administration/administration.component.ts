@@ -166,7 +166,7 @@ export class AdministrationComponent {
 
   status: PageStatus = 'loading';
   capabilities: SessionCapabilities = {
-    platform_admin: false, manage_global_branding: false, managed_workspace_ids: [],
+    platform_admin: false, manage_global_branding: false, managed_workspace_ids: [], manage_ai_workspace_ids: [],
   };
   workspaces: WorkspaceSummary[] = [];
   selectedWorkspace: WorkspaceSummary | null = null;

@@ -1,4 +1,4 @@
-.PHONY: setup dev dev-d prod prod-prepare stop migrate shell logs restart rebuild hard-rebuild
+.PHONY: setup dev dev-d keycloak-theme-apply prod prod-prepare stop migrate shell logs restart rebuild hard-rebuild
 
 # Il nome del progetto è salvato in .env dal setup; se assente, usa la cartella.
 # Le variabili d'ambiente della shell non sovrascrivono l'istanza configurata.
@@ -14,6 +14,7 @@ F_COMPOSE_BASE := $(CURDIR)/docker/docker-compose.yml
 F_COMPOSE_LOCAL := $(CURDIR)/docker/docker-compose.local.yml
 F_COMPOSE_OVERRIDE := $(CURDIR)/docker/docker-compose.override.yml
 F_COMPOSE_PROD := $(CURDIR)/docker/docker-compose.prod.yml
+PYTHON ?= python3.12
 
 # ─────────────────────────────────────────
 # SETUP
@@ -35,6 +36,9 @@ dev-d:
 	docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file "$(ENV_FILE)" -f "$(F_COMPOSE_BASE)" \
 	               -f "$(F_COMPOSE_LOCAL)" \
 	               -f "$(F_COMPOSE_OVERRIDE)" up -d
+
+keycloak-theme-apply:
+	$(PYTHON) templates/instance/tools/configure-local-keycloak-theme.py --env-file "$(ENV_FILE)"
 
 # ─────────────────────────────────────────
 # PRODUZIONE

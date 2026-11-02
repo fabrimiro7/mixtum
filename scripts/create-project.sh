@@ -37,7 +37,7 @@ cp "$source_root/requirements-baseline.lock" "$destination/constraints.txt"
 mkdir -p "$destination/tools"
 cp "$source_root/scripts/build-instance-console.sh" "$destination/tools/build-console.sh"
 mkdir -p "$destination/keycloak"
-cp "$source_root/docker/keycloak/realm-mixtum.json" "$destination/keycloak/realm-mixtum.json"
+cp -R "$source_root/docker/keycloak/." "$destination/keycloak/"
 sed -e "s|^COMPOSE_PROJECT_NAME=.*|COMPOSE_PROJECT_NAME=$project_name|" \
     -e "s|^MIXTUM_SOURCE=.*|MIXTUM_SOURCE=$source_root|" \
     -e "s|^SECRET_KEY=.*|SECRET_KEY=$secret_key|" \

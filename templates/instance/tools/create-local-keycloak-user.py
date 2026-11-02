@@ -8,47 +8,19 @@ import re
 import stat
 import sys
 from pathlib import Path
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlsplit
-from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
+from urllib.parse import urlsplit
+from urllib.request import ProxyHandler, Request, build_opener
+
+from keycloak_admin import (
+    KeycloakAdminError,
+    NoRedirect,
+    admin_access_token,
+    instance_config,
+    open_request,
+)
 
 
-class ProvisionError(Exception):
-    pass
-
-
-class NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, request, fp, code, msg, headers, newurl):
-        return None
-
-
-def instance_config() -> dict[str, str]:
-    env_file = Path(__file__).resolve().parents[1] / ".env"
-    if not env_file.is_file() or env_file.stat().st_mode & 0o077:
-        raise ProvisionError(".env assente o leggibile da altri utenti; ripristina i permessi 0600.")
-    values = {}
-    for line in env_file.read_text().splitlines():
-        if line and not line.lstrip().startswith("#") and "=" in line:
-            key, value = line.split("=", 1)
-            values[key] = value
-    required = ("KEYCLOAK_PUBLIC_URL", "KEYCLOAK_REALM", "KEYCLOAK_ADMIN", "KEYCLOAK_ADMIN_PASSWORD")
-    if any(not values.get(key) for key in required):
-        raise ProvisionError("Configurazione Keycloak incompleta in .env.")
-    if not re.fullmatch(r"[A-Za-z0-9_-]+", values["KEYCLOAK_REALM"]):
-        raise ProvisionError("KEYCLOAK_REALM non valido.")
-    url = urlsplit(values["KEYCLOAK_PUBLIC_URL"])
-    if (
-        url.scheme != "http" or url.hostname not in ("127.0.0.1", "localhost")
-        or url.username or url.password or url.path not in ("", "/") or url.query or url.fragment
-    ):
-        raise ProvisionError("Il comando accetta soltanto Keycloak HTTP su loopback.")
-    try:
-        if not 1 <= url.port <= 65535:
-            raise ValueError
-    except (TypeError, ValueError):
-        raise ProvisionError("Porta Keycloak locale non valida.") from None
-    values["KEYCLOAK_PUBLIC_URL"] = values["KEYCLOAK_PUBLIC_URL"].rstrip("/")
-    return values
+ProvisionError = KeycloakAdminError
 
 
 def user_password(path: str | None) -> str:
@@ -82,44 +54,6 @@ def user_password(path: str | None) -> str:
     return password
 
 
-def open_request(opener, request: Request, expected: int, stage: str):
-    try:
-        response = opener.open(request, timeout=10)
-        with response:
-            if response.status != expected:
-                raise ProvisionError(f"{stage}: risposta HTTP inattesa ({response.status}).")
-            return response.headers, response.read(1048577)
-    except HTTPError as error:
-        if stage == "Creazione utente" and error.code == 409:
-            raise ProvisionError("Utente Keycloak già esistente; nessun account sovrascritto.") from None
-        raise ProvisionError(f"{stage}: Keycloak ha risposto HTTP {error.code}.") from None
-    except (URLError, TimeoutError, OSError):
-        raise ProvisionError(f"{stage}: Keycloak locale non raggiungibile.") from None
-
-
-def admin_access_token(config: dict[str, str], opener) -> str:
-    base = config["KEYCLOAK_PUBLIC_URL"]
-    token_request = Request(
-        f"{base}/realms/master/protocol/openid-connect/token",
-        data=urlencode({
-            "client_id": "admin-cli", "grant_type": "password",
-            "username": config["KEYCLOAK_ADMIN"], "password": config["KEYCLOAK_ADMIN_PASSWORD"],
-        }).encode(),
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        method="POST",
-    )
-    _, token_body = open_request(opener, token_request, 200, "Autenticazione amministrativa")
-    if len(token_body) > 1048576:
-        raise ProvisionError("Risposta token troppo grande.")
-    try:
-        token = json.loads(token_body)["access_token"]
-        if not isinstance(token, str) or not token:
-            raise ValueError
-    except (ValueError, KeyError, TypeError):
-        raise ProvisionError("Risposta token amministrativo non valida.") from None
-    return token
-
-
 def provision(config: dict[str, str], username: str, email: str, password: str) -> str:
     if not re.fullmatch(r"[A-Za-z0-9._-]{3,64}", username):
         raise ProvisionError("Username non valido (3–64 lettere, cifre, punto, trattino o underscore).")
@@ -138,7 +72,13 @@ def provision(config: dict[str, str], username: str, email: str, password: str) 
         headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
         method="POST",
     )
-    headers, _ = open_request(opener, created, 201, "Creazione utente")
+    headers, _ = open_request(
+        opener,
+        created,
+        201,
+        "Creazione utente",
+        error_messages={409: "Utente Keycloak già esistente; nessun account sovrascritto."},
+    )
     location = urlsplit(headers.get("Location", ""))
     prefix = f"{users_path}/"
     subject = location.path.removeprefix(prefix) if location.path.startswith(prefix) else ""

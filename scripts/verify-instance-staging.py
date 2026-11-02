@@ -56,7 +56,12 @@ def keycloak_tool(instance):
     path = instance / "tools/create-local-keycloak-user.py"
     spec = importlib.util.spec_from_file_location("ci_keycloak_user", path)
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    sys.modules.pop("keycloak_admin", None)
+    sys.path.insert(0, str(path.parent))
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(path.parent))
     return module
 
 
@@ -151,6 +156,19 @@ def make_user(tool, config, opener, username):
         data={"type": "password", "value": password, "temporary": False},
     )
     return subject, password
+
+
+def set_required_actions(tool, config, opener, subject, actions):
+    admin_token = tool.admin_access_token(config, opener)
+    user_url = (
+        f"{config['KEYCLOAK_PUBLIC_URL']}/admin/realms/{config['KEYCLOAK_REALM']}"
+        f"/users/{subject}"
+    )
+    representation = json_request(opener, user_url, token=admin_token)
+    representation["requiredActions"] = actions
+    json_request(
+        opener, user_url, token=admin_token, method="PUT", expected=204, data=representation,
+    )
 
 
 def access_token(config, opener, client_id, username, password):
@@ -250,7 +268,7 @@ def first_instance(tool, config, opener):
     return client_id, ("mixtum-ci-a", password_a, workspace_a, ticket_a)
 
 
-def browser_login(username, password, workspace):
+def browser_login(username, password, workspace=None, *, new_password=None, expect_otp_page=False):
     environment = os.environ.copy()
     environment.update({
         "MIXTUM_CONSOLE_URL": CONSOLE_URL,
@@ -259,15 +277,86 @@ def browser_login(username, password, workspace):
         ),
         "MIXTUM_API_ORIGIN": WEB_URL,
     })
+    browser_input = {"username": username, "password": password}
+    if workspace is not None:
+        browser_input["workspaceId"] = workspace
+        browser_input["expectedGlobalPrimary"] = "#14532d"
+        browser_input["expectedWorkspacePrimary"] = "#1e3a8a"
+    if new_password is not None:
+        browser_input["newPassword"] = new_password
+    if expect_otp_page:
+        browser_input["expectOtpPage"] = True
     result = subprocess.run(
         ["node", str(ROOT / "console/tools/verify-instance-login.mjs")],
-        input=json.dumps({"username": username, "password": password, "workspaceId": workspace}),
+        input=json.dumps(browser_input),
         text=True, capture_output=True, cwd=ROOT, timeout=90, env=environment,
     )
     if result.returncode:
         raise StageError("Login Console via browser non riuscito")
-    if "PASS: login Console" not in result.stdout:
+    expected = "PASS: pagina configurazione OTP" if expect_otp_page else "PASS:"
+    if expected not in result.stdout:
         raise StageError("Esito login Console non verificabile")
+
+
+def verify_keycloak_theme_flows(tool, config, opener):
+    temporary_password = secrets.token_urlsafe(24)
+    tool.provision(config, "mixtum-ci-first-login", "mixtum-ci-first-login@example.test", temporary_password)
+    browser_login(
+        "mixtum-ci-first-login", temporary_password,
+        new_password=secrets.token_urlsafe(24),
+    )
+    otp_subject, otp_password = make_user(tool, config, opener, "mixtum-ci-otp")
+    set_required_actions(tool, config, opener, otp_subject, ["CONFIGURE_TOTP"])
+    browser_login("mixtum-ci-otp", otp_password, expect_otp_page=True)
+
+
+def verify_existing_realm_theme_upgrade(tool, config, opener):
+    admin_token = tool.admin_access_token(config, opener)
+    base = config["KEYCLOAK_PUBLIC_URL"]
+    realm_name = config["KEYCLOAK_REALM"]
+    realm_url = f"{base}/admin/realms/{realm_name}"
+    users_url = f"{realm_url}/users?max=1000"
+    clients_url = f"{realm_url}/clients"
+    current = json_request(opener, realm_url, token=admin_token)
+    users_before = {item["id"] for item in json_request(opener, users_url, token=admin_token)}
+    clients_before = {item["id"] for item in json_request(opener, clients_url, token=admin_token)}
+
+    legacy = dict(current)
+    legacy_attributes = dict(legacy.get("attributes") or {})
+    legacy_attributes["mixtum.theme-upgrade-sentinel"] = "preserved"
+    legacy.update({
+        "displayName": "Mixtum legacy",
+        "loginTheme": "keycloak.v2",
+        "internationalizationEnabled": False,
+        "supportedLocales": ["en"],
+        "defaultLocale": "en",
+        "attributes": legacy_attributes,
+    })
+    json_request(opener, realm_url, token=admin_token, method="PUT", expected=204, data=legacy)
+
+    first = run(["make", "keycloak-theme-apply"])
+    second = run(["make", "keycloak-theme-apply"])
+    if "Branding Keycloak AI 4 ISO 27001 & NIS2 applicato." not in first or "già configurato" not in second:
+        raise StageError("Reconciler tema non idempotente")
+
+    admin_token = tool.admin_access_token(config, opener)
+    updated = json_request(opener, realm_url, token=admin_token)
+    expected = {
+        "displayName": "AI 4 ISO 27001 & NIS2",
+        "loginTheme": "mixtum",
+        "internationalizationEnabled": True,
+        "defaultLocale": "it",
+    }
+    if any(updated.get(key) != value for key, value in expected.items()):
+        raise StageError("Realm esistente non riconciliato")
+    if set(updated.get("supportedLocales") or []) != {"it", "en"}:
+        raise StageError("Locale del realm esistente non riconciliate")
+    if (updated.get("attributes") or {}).get("mixtum.theme-upgrade-sentinel") != "preserved":
+        raise StageError("Attributi del realm persi durante il reconcile")
+    users_after = {item["id"] for item in json_request(opener, users_url, token=admin_token)}
+    clients_after = {item["id"] for item in json_request(opener, clients_url, token=admin_token)}
+    if users_after != users_before or clients_after != clients_before:
+        raise StageError("Utenti o client persi durante il reconcile")
 
 
 def restore_instance(temp_root, snapshot):
@@ -284,7 +373,7 @@ def restore_instance(temp_root, snapshot):
     shutil.copytree(SOURCE / "vendor/wheels", target / "vendor/wheels", dirs_exist_ok=True)
     try:
         run(["make", "restore-volumes", f"SNAPSHOT_DIR={snapshot}"], cwd=target)
-        compose("build", "web", cwd=target)
+        compose("build", "web", "keycloak", cwd=target)
         compose("up", "-d", "db", "keycloak", cwd=target)
         compose("run", "--rm", "web", "python", "manage.py", "migrate", "--check", cwd=target)
         compose("up", "-d", "web", cwd=target)
@@ -327,6 +416,8 @@ def main():
         wait_for(f"{WEB_URL}/health/ready/")
         wait_for(f"{CONSOLE_URL}/assets/mixtum-config.json")
         client_id, (username, password, workspace, ticket) = first_instance(tool, config, opener)
+        verify_existing_realm_theme_upgrade(tool, config, opener)
+        verify_keycloak_theme_flows(tool, config, opener)
         browser_login(username, password, workspace)
         run(["make", "stop"])
         with tempfile.TemporaryDirectory(prefix="mixtum-ci-recovery-") as temporary:

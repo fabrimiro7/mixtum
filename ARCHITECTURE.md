@@ -8,6 +8,8 @@ Il modello target è:
 
 > **Modular monolith a livello applicativo + servizi infrastrutturali esterni componibili + plugin di prodotto + extension specifiche di istanza.**
 
+La direzione concordata l'8 ottobre 2026 è descritta nel [piano prodotti, AI Labs e aggiornamenti cliente](docs/plans/2026-10-08-prodotti-ai-labs-aggiornamenti.md): AI Labs è un componente della Platform con interfaccia nella Console; i prodotti evolvono in repository separati e le istanze consumano artefatti versionati. La visibilità dei prodotti nel menu resta distinta dalla loro abilitazione e dalle autorizzazioni. Il piano distingue ciò che esiste dalle operazioni ancora da implementare; le sezioni sotto conservano anche il contesto e gli esempi architetturali originari.
+
 ---
 
 # 1. Contesto attuale

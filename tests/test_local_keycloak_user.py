@@ -70,7 +70,12 @@ class LocalKeycloakUserTests(unittest.TestCase):
         self.assertTrue(script.exists())
         spec = importlib.util.spec_from_file_location("create_local_keycloak_user", script)
         self.module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(self.module)
+        sys.modules.pop("keycloak_admin", None)
+        sys.path.insert(0, str(script.parent))
+        try:
+            spec.loader.exec_module(self.module)
+        finally:
+            sys.path.remove(str(script.parent))
         self.password = self.root / "initial-password"
         self.password.write_text("temporary-secret-123\n")
         self.password.chmod(0o600)

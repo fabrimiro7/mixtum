@@ -6,6 +6,7 @@ import { AdministrationComponent } from './modules/administration/administration
 import { MainLayoutComponent } from './layout/main-layout/main-layout.component';
 import { authGuard } from './core/guards/auth.guard';
 import { consolePlugins } from '../instance/plugins';
+import { AiLabsComponent } from './modules/ai-labs/ai-labs.component';
 
 export const routes: Routes = [
 
@@ -30,6 +31,10 @@ export const routes: Routes = [
       {
         path: 'administration',
         component: AdministrationComponent
+      },
+      {
+        path: 'ai-labs',
+        component: AiLabsComponent
       },
       ...consolePlugins.flatMap(plugin => plugin.routes),
     ]

@@ -2,7 +2,7 @@
   <h1 id="dashboard-title" class="text-2xl font-semibold text-slate-900">Portale</h1>
   @if ((status$ | async) === 'denied') {
     <p role="alert" class="mt-6 rounded-md bg-amber-50 p-4 text-amber-900">
-      L’identità Keycloak non è collegata a un account Mixtum autorizzato. Contatta un amministratore.
+      L’identità Keycloak non è collegata a un account AI 4 ISO 27001 &amp; NIS2 autorizzato. Contatta un amministratore.
     </p>
   } @else if ((status$ | async) === 'error') {
     <p role="alert" class="mt-6 rounded-md bg-red-50 p-4 text-red-800">

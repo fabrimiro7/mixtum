@@ -17,7 +17,9 @@ services:
     restart: unless-stopped
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.7.5
+    build:
+      context: ./keycloak
+      dockerfile: Containerfile
     command: ["start-dev", "--import-realm"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
@@ -67,6 +69,10 @@ services:
       AWS_STATIC_LOCATION: ${AWS_STATIC_LOCATION:-static}
       AWS_S3_CACHE_CONTROL: ${AWS_S3_CACHE_CONTROL:-max-age=86400, s-maxage=86400, must-revalidate}
       STATIC_ON_S3: ${STATIC_ON_S3:-0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-django-db}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       MIXTUM_INSTANCE_ROOT: /app
       MIXTUM_COMPOSITION_MODULE: mixtum_instance.composition
     command: ["gunicorn", "mixtum_core.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120"]
@@ -77,6 +83,49 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+    environment:
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      AUTH_MODE: ${AUTH_MODE:-keycloak}
+      SETTINGS_ENV: ${SETTINGS_ENV:-local}
+      USE_S3: ${USE_S3:-0}
+      POSTGRES_DB: ${POSTGRES_DB:-mixtumdb}
+      POSTGRES_USER: ${POSTGRES_USER:-mixtumuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-django-db}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+      MIXTUM_INSTANCE_ROOT: /app
+      MIXTUM_COMPOSITION_MODULE: mixtum_instance.composition
+    command: ["celery", "-A", "mixtum_core", "worker", "--loglevel=INFO"]
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.15.4
+    volumes:
+      - qdrant_data:/qdrant/storage
     restart: unless-stopped
 
   console:
@@ -92,3 +141,5 @@ volumes:
   postgres_data:
   keycloak_data:
   media_data:
+  redis_data:
+  qdrant_data:

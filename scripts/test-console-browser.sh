@@ -25,6 +25,7 @@ ln -s "$source_root/mixtum_instance" "$work_root/mixtum_instance"
         'dependencies.@mixtum/plugin-example-console=file:../plugins/plugin_example/console/dist' \
         'dependencies.@mixtum/plugin-links-console=file:../plugins/links/console/dist' \
         'dependencies.@mixtum/plugin-ticket-console=file:../plugins/ticket/console/dist' \
+        'dependencies.@mixtum/plugin-documents-console=file:../plugins/documents/console/dist' \
         'dependencies.@mixtum/extension-demo-support-console=file:../extensions/demo_support/console/dist'
     npm install --package-lock-only --cache "$work_root/npm-cache"
     npm ci --cache "$work_root/npm-cache"

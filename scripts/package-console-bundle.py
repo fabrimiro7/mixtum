@@ -24,6 +24,7 @@ SOURCES = (
     "plugins/plugin_example/console",
     "plugins/links/console",
     "plugins/ticket/console",
+    "plugins/documents/console",
     "extensions/demo_support/console",
 )
 

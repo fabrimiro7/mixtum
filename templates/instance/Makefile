@@ -1,4 +1,4 @@
-.PHONY: check check-config install-wheels wheel-check stage-wheels plugin-register plugin-backend-editable backend-dev console-build console-add-package console-dev prepare up stop logs snapshot-volumes restore-volumes
+.PHONY: check check-config install-wheels wheel-check stage-wheels plugin-register plugin-backend-editable backend-dev console-build console-add-package console-dev keycloak-theme-apply prepare up stop logs snapshot-volumes restore-volumes
 
 PYTHON ?= python3.12
 BACKEND_DEV_PORT ?= 8000
@@ -61,15 +61,19 @@ console-dev:
 	 CONSOLE_BUNDLE="$(CONSOLE_BUNDLE)" CONSOLE_DEV_PORT="$(CONSOLE_DEV_PORT)" \
 	 bash ./tools/build-console.sh --dev "$(CURDIR)" "$(PLUGIN_SOURCE)"
 
+keycloak-theme-apply: check-config
+	$(PYTHON) tools/configure-local-keycloak-theme.py
+
 prepare: check-config
 	@test -d vendor/wheels || { echo 'Prima esegui make stage-wheels WHEELHOUSE=...' >&2; exit 1; }
-	docker compose --env-file .env build web
+	docker compose --env-file .env build web keycloak
 	docker compose --env-file .env up -d db keycloak
+	$(MAKE) keycloak-theme-apply
 	docker compose --env-file .env run --rm web python manage.py migrate --noinput
 
 up:
 	@test -f artifacts/console/browser/index.html || { echo 'Prima esegui make console-build.' >&2; exit 1; }
-	docker compose --env-file .env up -d web console
+	docker compose --env-file .env up -d web worker redis qdrant console
 
 stop:
 	docker compose --env-file .env down
@@ -83,4 +87,4 @@ restore-volumes:
 	bash ./tools/restore-volumes.sh "$(SNAPSHOT_DIR)"
 
 logs:
-	docker compose --env-file .env logs -f web console keycloak
+	docker compose --env-file .env logs -f web worker qdrant console keycloak

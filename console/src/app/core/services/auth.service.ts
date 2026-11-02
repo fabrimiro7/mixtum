@@ -15,12 +15,14 @@ export interface WorkspaceSummary {
   name: string;
   role: string | null;
   can_manage: boolean;
+  visible_products?: string[];
 }
 
 export interface SessionCapabilities {
   platform_admin: boolean;
   manage_global_branding: boolean;
   managed_workspace_ids: number[];
+  manage_ai_workspace_ids: number[];
 }
 
 interface SessionResponse {
@@ -52,6 +54,7 @@ export class AuthService {
     platform_admin: false,
     manage_global_branding: false,
     managed_workspace_ids: [],
+    manage_ai_workspace_ids: [],
   });
   private brandingRequest = 0;
 
@@ -109,6 +112,7 @@ export class AuthService {
         platform_admin: false,
         manage_global_branding: false,
         managed_workspace_ids: [],
+        manage_ai_workspace_ids: [],
       });
       const previous = Number(sessionStorage.getItem('mixtum.workspaceId'));
       this.selectedWorkspaceSubject.next(
@@ -147,6 +151,7 @@ export class AuthService {
       platform_admin: false,
       manage_global_branding: false,
       managed_workspace_ids: [],
+      manage_ai_workspace_ids: [],
     });
     sessionStorage.removeItem('mixtum.workspaceId');
   }

@@ -1,5 +1,5 @@
 {
-  "capabilities": [],
+  "capabilities": ["ai_labs"],
   "plugins": ["plugin_example", "links", "ticket"],
   "extensions": ["demo_support"]
 }

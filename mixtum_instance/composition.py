@@ -10,6 +10,7 @@ _available_manifests = {
     "plugin_example": "plugins.plugin_example.manifest",
     "links": "plugins.links.manifest",
     "ticket": "plugins.ticket.manifest",
+    "documents": "plugins.documents.manifest",
 }
 _available_extensions = {
     "demo_support": "extensions.demo_support.manifest",

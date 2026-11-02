@@ -114,6 +114,7 @@ __screenshots__/
 .angular/
 out-tsc/
 coverage/
+/TEMP/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

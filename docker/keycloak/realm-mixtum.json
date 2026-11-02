@@ -1,11 +1,16 @@
 {
   "realm": "mixtum",
+  "displayName": "AI 4 ISO 27001 & NIS2",
   "enabled": true,
   "registrationAllowed": false,
+  "loginTheme": "mixtum",
+  "internationalizationEnabled": true,
+  "supportedLocales": ["it", "en"],
+  "defaultLocale": "it",
   "clients": [
     {
       "clientId": "mixtum-console",
-      "name": "Mixtum Console (local development)",
+      "name": "AI 4 ISO 27001 & NIS2 Console (local development)",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": true,
@@ -41,7 +46,7 @@
     },
     {
       "clientId": "mixtum-public",
-      "name": "Mixtum Public Frontend (local development)",
+      "name": "AI 4 ISO 27001 & NIS2 Public Frontend (local development)",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": true,

@@ -60,6 +60,7 @@ import tarfile
 destination = pathlib.Path(sys.argv[2])
 allowed = ("console/", "packages/console-api/", "plugins/plugin_example/console/",
            "plugins/links/console/", "plugins/ticket/console/",
+           "plugins/documents/console/",
            "extensions/demo_support/console/")
 seen = set()
 with tarfile.open(sys.argv[1], "r:gz") as archive:

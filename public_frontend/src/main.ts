@@ -23,6 +23,6 @@ async function start(): Promise<void> {
 }
 
 start().catch((error) => {
-  console.error('Mixtum Public Frontend could not start', error);
+  console.error('AI 4 ISO 27001 & NIS2 Public Frontend could not start', error);
   document.body.textContent = 'Il portale non è disponibile. Controlla la configurazione e riprova.';
 });

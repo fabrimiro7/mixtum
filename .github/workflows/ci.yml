@@ -26,6 +26,7 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_plugin_registration.py' -v
       - run: python -m unittest discover -s tests -p 'test_volume_snapshot.py' -v
       - run: python -m unittest discover -s tests -p 'test_local_keycloak_user.py' -v
+      - run: python -m unittest discover -s tests -p 'test_keycloak_theme.py' -v
       - run: python -m unittest discover -s tests -p 'test_instance_staging_contract.py' -v
       - run: python -m unittest discover -s tests -p 'test_external_plugin_image.py' -v
       - run: bash -n scripts/setup.sh scripts/entrypoint.sh scripts/deploy.sh templates/instance/tools/snapshot-volumes.sh templates/instance/tools/restore-volumes.sh
@@ -34,6 +35,7 @@ jobs:
       - run: python -m pip wheel --no-deps --wheel-dir /tmp/mixtum-plugin-wheels ./plugins/plugin_example
       - run: python -m pip wheel --no-deps --wheel-dir /tmp/mixtum-plugin-wheels ./plugins/links
       - run: python -m pip wheel --no-deps --wheel-dir /tmp/mixtum-plugin-wheels ./plugins/ticket
+      - run: python -m pip wheel --no-deps --wheel-dir /tmp/mixtum-plugin-wheels ./plugins/documents
       - run: python -m pip wheel --no-deps --wheel-dir /tmp/mixtum-plugin-wheels ./extensions/demo_support
       - name: Clean instance from versioned backend wheels
         run: |
@@ -107,6 +109,13 @@ jobs:
             -e POSTGRES_HOST=127.0.0.1 -e POSTGRES_DB=mixtum_ci \
             -e POSTGRES_USER=mixtum_ci -e POSTGRES_PASSWORD=ci-only-password \
             mixtum-ci python manage.py test --noinput
+          docker run --rm --network host \
+            -e SECRET_KEY=ci-only-placeholder \
+            -e AUTH_MODE=django -e USE_S3=0 \
+            -e POSTGRES_HOST=127.0.0.1 -e POSTGRES_DB=mixtum_ci \
+            -e POSTGRES_USER=mixtum_ci -e POSTGRES_PASSWORD=ci-only-password \
+            -e MIXTUM_COMPOSITION_MODULE=tests.fixtures.documents_composition \
+            mixtum-ci sh -c "python -m pip install 'PyMuPDF>=1.24,<2' && python manage.py test plugins.documents --noinput"
 
   frontend:
     runs-on: ubuntu-latest

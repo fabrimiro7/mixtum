@@ -70,6 +70,8 @@ class StagingContractTests(unittest.TestCase):
             patch.object(module, "keycloak_tool", return_value=tool),
             patch.object(module, "build_opener", return_value=object()),
             patch.object(module, "first_instance", return_value=("ci-client", ("alice", "password", 7, 11))),
+            patch.object(module, "verify_existing_realm_theme_upgrade"),
+            patch.object(module, "verify_keycloak_theme_flows"),
             patch.object(module, "browser_login", side_effect=lambda *args: calls.append(("browser", args))),
             patch.object(module, "restore_instance", side_effect=fake_restore),
             patch.object(module, "access_token", return_value="restored-token"),
@@ -146,6 +148,7 @@ class StagingContractTests(unittest.TestCase):
         self.assertNotIn("private-password", " ".join(args))
         self.assertEqual(json.loads(options["input"]), {
             "username": "alice", "password": "private-password", "workspaceId": 7,
+            "expectedGlobalPrimary": "#14532d", "expectedWorkspacePrimary": "#1e3a8a",
         })
         self.assertTrue(options["capture_output"])
 

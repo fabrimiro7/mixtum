@@ -9,6 +9,11 @@ ROOT = Path(__file__).resolve().parents[1]
 class OidcLocalConfigTests(unittest.TestCase):
     def test_public_clients_are_distinct_pkce_only_and_local(self):
         realm = json.loads((ROOT / "docker/keycloak/realm-mixtum.json").read_text())
+        self.assertEqual(realm["displayName"], "Mixtum")
+        self.assertEqual(realm["loginTheme"], "mixtum")
+        self.assertTrue(realm["internationalizationEnabled"])
+        self.assertEqual(realm["supportedLocales"], ["it", "en"])
+        self.assertEqual(realm["defaultLocale"], "it")
         clients = {client["clientId"]: client for client in realm["clients"]}
         self.assertEqual(set(clients), {"mixtum-console", "mixtum-public"})
         for name, port in (("mixtum-console", 4200), ("mixtum-public", 4300)):

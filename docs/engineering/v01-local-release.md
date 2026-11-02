@@ -28,7 +28,7 @@ make prepare
 make up
 ```
 
-`make prepare` applica migration soltanto al database indicato dall'istanza. Verificare live/readiness, discovery OIDC e login reale prima di considerare concluso l'avvio. Arrestare senza cancellare dati con `make stop`.
+`make prepare` costruisce anche l'immagine Keycloak con il tema Mixtum, applica in modo idempotente tema/localizzazione al realm esistente e applica migration soltanto al database indicato dall'istanza. Verificare live/readiness, discovery OIDC e login reale prima di considerare concluso l'avvio. Arrestare senza cancellare dati con `make stop`.
 
 ## Bootstrap amministrativo
 
@@ -45,11 +45,13 @@ Il comando imposta solo `is_superuser`: non crea password Django, non usa email 
 
 1. Fermare l'istanza e creare uno snapshot cold.
 2. Conservare l'intero insieme baseline, inclusi `.env`, composizione e artefatti.
-3. Sostituire wheel e bundle con l'insieme finale coordinato.
+3. Sostituire wheel, bundle e directory `keycloak/` con l'insieme finale coordinato.
 4. Eseguire `make prepare`, quindi `make up`.
 5. Verificare login, membership, Ticket, branding, media e `python manage.py migrate --check` nel container web.
 
 Non effettuare il downgrade del solo codice dopo migration non reversibili. Il rollback supportato è il ripristino dell'insieme coerente precedente.
+
+Se il rollback sostituisce l'immagine Keycloak Mixtum con una priva del tema, selezionare prima `keycloak.v2` nel realm usando ancora l'immagine corrente. Il reconciler non cancella o reimporta il volume e non gestisce Keycloak remoti.
 
 ## Recovery coerente
 

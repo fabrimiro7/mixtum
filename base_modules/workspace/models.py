@@ -68,3 +68,15 @@ class AdminAuditEvent(models.Model):
     class Meta:
         ordering = ("-created_at", "-id")
         indexes = [models.Index(fields=("workspace", "created_at"), name="admin_audit_workspace_idx")]
+
+
+class WorkspaceProductFlag(models.Model):
+    """Presentation flag only: it never grants or revokes backend capabilities."""
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="product_flags")
+    product_id = models.SlugField(max_length=80)
+    visible_in_menu = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("workspace", "product_id"), name="workspace_product_flag_uniq")]

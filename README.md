@@ -14,6 +14,7 @@ Guide pratiche per sviluppare con Mixtum:
 - **[Transizione Links](docs/engineering/links-transition.md)** — Secondo plugin, isolamento workspace e trattamento dei dati legacy.
 - **[Packaging backend](docs/engineering/platform-packaging.md)** — Wheel della piattaforma, vincoli di dipendenza e prova da istanza separata.
 - **[Allegati legacy](docs/engineering/attachments-legacy.md)** — Accesso per proprietario, download privato e limiti dell'upload in modalità Django.
+- **[AI Labs e Documents](docs/plans/2026-10-08-ai-labs-documents.md)** — Architettura, checkpoint completati e gate ancora aperti del runtime AI condiviso.
 
 Per creare una **nuova istanza separata** senza copiare il framework nel progetto cliente:
 
@@ -142,7 +143,7 @@ cd ../public_frontend && npm ci && npm run build && npm test -- --watch=false
 
 La CI esegue inoltre i test bootstrap, i controlli Django e `npm audit` sui due frontend. Per la build Angular su macOS il modulo nativo della cache può interrompersi nel sandbox di Codex; il build e i test sono stati verificati fuori dal sandbox. La dipendenza `django-celery-beat` usa temporaneamente un commit upstream fissato, in attesa di una release compatibile con Django 6.1.
 
-La modalità Keycloak è in preparazione: backend, Console e Public Frontend opzionale hanno client OIDC separati, ma il login con un realm reale non è ancora verificato. Configurazione locale, migration e gate aperti sono in [docs/engineering/keycloak-local.md](docs/engineering/keycloak-local.md). Non abilitare `AUTH_MODE=keycloak` su un'istanza esistente senza seguire quella procedura.
+La modalità Keycloak locale usa client OIDC separati per Console e Public Frontend. Il login Console con Authorization Code + PKCE, cambio password, logout, workspace e Ticket è verificato contro Keycloak reale; l'immagine derivata include il tema login Mixtum. Configurazione, aggiornamento sicuro del realm e limiti restano documentati in [docs/engineering/keycloak-local.md](docs/engineering/keycloak-local.md). Non abilitare o aggiornare `AUTH_MODE=keycloak` su un'istanza esistente senza seguire quella procedura.
 
 L'immagine Docker usa lo stesso file di vincoli Python. Il controllo `pip install` locale richiede accesso all'indice dei pacchetti; in assenza di rete la build Docker e i test nel container restano la verifica disponibile.
 

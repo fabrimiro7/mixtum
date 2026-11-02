@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "base_modules.key_manager",
     "base_modules.branding",
     "base_modules.workspace",
+    "base_modules.ai_labs",
     "base_modules.attachment",
     "base_modules.the_watcher",
     "base_modules.integrations.messaging",

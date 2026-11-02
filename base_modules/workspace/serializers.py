@@ -2,7 +2,7 @@
 from base_modules.user_manager.models import User
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
-from .models import Workspace, WorkspaceUser
+from .models import Workspace, WorkspaceProductFlag, WorkspaceUser
 from .services import change_membership_role, create_membership, create_workspace_with_owner
 
 class UserSerializer(serializers.ModelSerializer):
@@ -108,3 +108,10 @@ class WorkspaceUserSerializer(serializers.ModelSerializer):
             return change_membership_role(membership=instance, role=role)
         except DjangoValidationError as error:
             raise serializers.ValidationError(error.messages) from None
+
+
+class WorkspaceProductFlagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkspaceProductFlag
+        fields = ("id", "workspace", "product_id", "visible_in_menu", "updated_at")
+        read_only_fields = ("id", "workspace", "updated_at")

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mixtum-plugin-documents-backend"
+version = "0.1.0"
+description = "Documents product for Mixtum"
+requires-python = ">=3.12"
+dependencies = [
+  "mixtum-platform-backend>=0.1,<0.2",
+  "PyMuPDF>=1.24,<2",
+]
+
+[tool.setuptools]
+packages = ["plugins.documents", "plugins.documents.migrations"]
+
+[tool.setuptools.package-dir]
+"plugins.documents" = "."

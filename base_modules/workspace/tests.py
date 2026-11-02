@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 from base_modules.user_manager.models import ExternalIdentity, User
 from plugins.plugin_example.models import ExampleModel
 
-from .models import AdminAuditEvent, Workspace, WorkspaceUser
+from .models import AdminAuditEvent, Workspace, WorkspaceProductFlag, WorkspaceUser
 
 
 class WorkspaceIsolationTests(TestCase):
@@ -71,12 +71,23 @@ class WorkspaceIsolationTests(TestCase):
         self.assertEqual(response.data["user"]["id"], self.user.pk)
         self.assertEqual(response.data["workspaces"], [{
             "id": self.own_workspace.pk, "name": "Own", "role": "member", "can_manage": False,
+            "visible_products": ["ai_labs", "demo_support", "links", "plugin_example", "ticket"],
         }])
         self.assertEqual(response.data["capabilities"], {
             "platform_admin": False,
             "manage_global_branding": False,
             "managed_workspace_ids": [],
+            "manage_ai_workspace_ids": [],
         })
+
+    def test_menu_flag_hides_product_without_disabling_backend(self):
+        WorkspaceProductFlag.objects.create(
+            workspace=self.own_workspace, product_id="ticket", visible_in_menu=False,
+        )
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get("/api/workspace/session/")
+        self.assertNotIn("ticket", response.data["workspaces"][0]["visible_products"])
+        self.assertIn("links", response.data["workspaces"][0]["visible_products"])
 
 
 @override_settings(AUTH_MODE="keycloak", KEYCLOAK_ISSUER="https://id.example.test/realms/mixtum")

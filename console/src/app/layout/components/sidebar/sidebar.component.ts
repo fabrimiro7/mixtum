@@ -20,8 +20,16 @@ export class SidebarComponent {
   readonly branding$ = this.auth.branding$;
   readonly capabilities$ = this.auth.capabilities$;
   readonly canManageSelectedWorkspace$ = this.auth.canManageSelectedWorkspace$;
-  readonly pluginNavigation = consolePlugins.flatMap(plugin => plugin.navigation);
+  readonly productNavigation = [
+    { label: 'AI Labs', path: '/ai-labs', productId: 'ai_labs', requiresWorkspaceManagement: false },
+    ...consolePlugins.flatMap(plugin => plugin.navigation.map(item => ({ ...item, productId: plugin.id }))),
+  ];
   logoutError = false;
+
+  isVisible(productId: string, workspaceId: number | null, workspaces: readonly { id: number; visible_products?: string[] }[]): boolean {
+    if (workspaceId === null) return false;
+    return workspaces.find(workspace => workspace.id === workspaceId)?.visible_products?.includes(productId) ?? true;
+  }
 
   selectWorkspace(event: Event): void {
     const id = Number((event.target as HTMLSelectElement).value);

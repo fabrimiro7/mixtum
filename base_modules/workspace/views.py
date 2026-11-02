@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
 from rest_framework import permissions, status, viewsets
@@ -7,9 +8,9 @@ from rest_framework.views import APIView
 
 from base_modules.user_manager.models import User
 
-from .models import AdminAuditEvent, Workspace, WorkspaceUser
-from .permissions import CanManageWorkspaceObject, IsPlatformAdmin
-from .serializers import UserSerializer, WorkspaceSerializer, WorkspaceUserSerializer
+from .models import AdminAuditEvent, Workspace, WorkspaceProductFlag, WorkspaceUser
+from .permissions import CanManageWorkspaceObject, HasManagedWorkspace, IsPlatformAdmin
+from .serializers import UserSerializer, WorkspaceProductFlagSerializer, WorkspaceSerializer, WorkspaceUserSerializer
 from .services import delete_membership, record_admin_event
 
 
@@ -30,6 +31,12 @@ class SessionView(APIView):
             for membership in memberships
             if membership.role == WorkspaceUser.OWNER
         ]
+        product_ids = {"ai_labs", *(plugin.id for plugin in settings.MIXTUM_PLUGINS)}
+        hidden_by_workspace = {}
+        for workspace_id, product_id in WorkspaceProductFlag.objects.filter(
+            workspace_id__in=[workspace.pk for workspace in workspaces], visible_in_menu=False,
+        ).values_list("workspace_id", "product_id"):
+            hidden_by_workspace.setdefault(workspace_id, set()).add(product_id)
         return Response({
             "user": UserSerializer(request.user).data,
             "workspaces": [
@@ -44,6 +51,7 @@ class SessionView(APIView):
                         workspace.pk in membership_by_workspace
                         and membership_by_workspace[workspace.pk].role == WorkspaceUser.OWNER
                     ),
+                    "visible_products": sorted(product_ids - hidden_by_workspace.get(workspace.pk, set())),
                 }
                 for workspace in workspaces
             ],
@@ -51,8 +59,25 @@ class SessionView(APIView):
                 "platform_admin": request.user.is_superuser,
                 "manage_global_branding": request.user.is_superuser,
                 "managed_workspace_ids": owned_workspace_ids,
+                "manage_ai_workspace_ids": owned_workspace_ids,
             },
         })
+
+
+class WorkspaceProductFlagViewSet(viewsets.ModelViewSet):
+    serializer_class = WorkspaceProductFlagSerializer
+    permission_classes = (permissions.IsAuthenticated, HasManagedWorkspace)
+    http_method_names = ("get", "post", "patch", "delete", "head", "options")
+
+    def get_queryset(self):
+        return WorkspaceProductFlag.objects.filter(workspace=self.request.workspace).order_by("product_id")
+
+    def perform_create(self, serializer):
+        flag = serializer.save(workspace=self.request.workspace)
+        record_admin_event(
+            actor=self.request.user, action="workspace.product_flag.create",
+            outcome=AdminAuditEvent.SUCCESS, workspace=flag.workspace,
+        )
 
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):

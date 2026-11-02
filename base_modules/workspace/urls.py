@@ -1,15 +1,15 @@
 # workspace/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import SessionView, WorkspaceViewSet, WorkspaceUserViewSet, UserViewSet
+from .views import SessionView, WorkspaceProductFlagViewSet, WorkspaceViewSet, WorkspaceUserViewSet, UserViewSet
 
 router = DefaultRouter()
 router.register(r'workspaces', WorkspaceViewSet, basename='workspace')
 router.register(r'workspace-users', WorkspaceUserViewSet, basename='workspaceuser')
 router.register(r'users', UserViewSet, basename='user') 
+router.register(r'product-flags', WorkspaceProductFlagViewSet, basename='product-flag')
 
 urlpatterns = [
     path('session/', SessionView.as_view(), name='workspace-session'),
     path('', include(router.urls)),
 ]
-
